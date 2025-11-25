@@ -28,7 +28,7 @@ class ProfileUI extends JPanel {
 
         JLabel title = new JLabel("SELECT PROFILE", SwingConstants.CENTER);
         title.setFont(UITheme.FONT_SUBTITLE);
-        title.setForeground(UITheme.PRIMARY_CYAN);
+        title.setForeground(UITheme.PRIMARY_GREEN);
         gbc.gridy = 0;
         gbc.weightx = 1.0;
         gbc.insets = new Insets(40, 40, 30, 40);
@@ -69,6 +69,7 @@ class ProfileUI extends JPanel {
     private JPanel createSlotPanel(int profileIndex, PlayerProgress progress) {
         boolean isNew = progress == null || (progress.getPlayerLevel() == 1
             && progress.getCurrentExp() == 0 && progress.getClearedWorldCount() == 0);
+        boolean isActive = parent.getActiveProfileIndex() == profileIndex - 1;
 
         final boolean[] hover = {false};
         JPanel panel = new JPanel(new BorderLayout()) {
@@ -76,17 +77,48 @@ class ProfileUI extends JPanel {
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                Color base = new Color(15, 15, 30, 200);
+                // Use nearest neighbor for pixel-art look
+                g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+                
+                // Dark background
+                Color bg;
                 if (hover[0]) {
-                    base = base.brighter();
+                    bg = new Color(UITheme.BG_CARD.getRed() + 15, UITheme.BG_CARD.getGreen() + 15, UITheme.BG_CARD.getBlue() + 15);
+                } else if (isActive) {
+                    bg = UITheme.BG_CARD;
+                } else {
+                    bg = new Color(UITheme.BG_CARD.getRed() - 5, UITheme.BG_CARD.getGreen() - 5, UITheme.BG_CARD.getBlue() - 5);
                 }
-                g2.setColor(base);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 18, 18);
-                Color borderColor = hover[0] ? UITheme.PRIMARY_CYAN : new Color(120, 120, 160);
-                g2.setColor(borderColor);
-                g2.setStroke(new BasicStroke(2f));
-                g2.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 18, 18);
+                g2.setColor(bg);
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                
+                // Use Panel asset (includes background and border) - matching reference style
+                java.awt.image.BufferedImage panelImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Panel/panel-000.png");
+                if (panelImg != null) {
+                    float alpha = hover[0] ? 1.0f : (isActive ? 0.9f : 0.6f);
+                    g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                    PixelArtUI.drawNineSlice(g2, panelImg, 0, 0, getWidth(), getHeight());
+                } else {
+                    // Fallback: dark background with border
+                    g2.setColor(bg);
+                    g2.fillRect(0, 0, getWidth(), getHeight());
+                    
+                    java.awt.image.BufferedImage borderImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Border/panel-border-000.png");
+                    if (borderImg != null) {
+                        float alpha = hover[0] ? 1.0f : (isActive ? 0.9f : 0.6f);
+                        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                        PixelArtUI.drawNineSlice(g2, borderImg, 0, 0, getWidth(), getHeight());
+                    } else {
+                        Color borderColor = hover[0] 
+                            ? UITheme.BORDER_HIGHLIGHT 
+                            : isActive 
+                                ? UITheme.BORDER_NORMAL
+                                : new Color(UITheme.BORDER_NORMAL.getRed(), UITheme.BORDER_NORMAL.getGreen(), UITheme.BORDER_NORMAL.getBlue(), 120);
+                        g2.setColor(borderColor);
+                        g2.setStroke(new BasicStroke(2f));
+                        g2.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
+                    }
+                }
                 g2.dispose();
             }
         };
@@ -95,13 +127,13 @@ class ProfileUI extends JPanel {
 
         JLabel slotNumber = new JLabel(profileIndex + ".", SwingConstants.LEFT);
         slotNumber.setFont(UITheme.FONT_SUBTITLE);
-        slotNumber.setForeground(new Color(220, 220, 240));
+        slotNumber.setForeground(UITheme.PRIMARY_WHITE);
         slotNumber.setBorder(new EmptyBorder(10, 15, 0, 15));
 
         panel.add(slotNumber, BorderLayout.NORTH);
 
         JLabel body = new JLabel("", SwingConstants.CENTER);
-        body.setForeground(Color.WHITE);
+        body.setForeground(UITheme.PRIMARY_WHITE);
         body.setFont(UITheme.FONT_TEXT_LARGE);
         body.setBorder(new EmptyBorder(10, 10, 10, 10));
 
@@ -208,17 +240,17 @@ class ProfileUI extends JPanel {
         Graphics2D g2d = (Graphics2D) g;
         parent.paintBackground(g2d, getWidth(), getHeight());
 
-        // Vignette overlay similar to main menu
-        g2d.setColor(new Color(0, 0, 0, 140));
+        // Very dark vignette overlay
+        g2d.setColor(new Color(0, 0, 0, 200));
         g2d.fillRect(0, 0, getWidth(), getHeight());
 
-        // Soft central glow behind the profile slots
-        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.6f));
+        // Subtle orange glow behind the profile slots (from palette)
+        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
         g2d.setPaint(new RadialGradientPaint(
             new Point(getWidth() / 2, getHeight() / 2),
             Math.max(getWidth(), getHeight()) / 3f,
             new float[]{0f, 1f},
-            new Color[]{new Color(20, 80, 140, 220), new Color(0, 0, 0, 0)}
+            new Color[]{new Color(220, 120, 60, 120), new Color(0, 0, 0, 0)}
         ));
         g2d.fillRect(0, 0, getWidth(), getHeight());
         g2d.setComposite(AlphaComposite.SrcOver);

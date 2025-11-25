@@ -117,11 +117,8 @@ class MenuUI extends JPanel {
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
-        // Background: reuse the frame's background image / gradient
-        parent.paintBackground(g2d, getWidth(), getHeight());
-
-        // Subtle vignette to focus the center (no colored circle overlay)
-        g2d.setColor(new Color(0, 0, 0, 140));
+        // Background: very dark blue-gray/charcoal matching reference
+        g2d.setColor(UITheme.BG_DARK_TEAL);
         g2d.fillRect(0, 0, getWidth(), getHeight());
 
         // Title + subtitle
@@ -139,36 +136,22 @@ class MenuUI extends JPanel {
         int centerX = getWidth() / 2;
         int top = 150;
 
-        // Main title
-        Font titleFont = new Font("Serif", Font.BOLD, 64);
+        // Main title - simple white text (matching reference style, sans-serif)
+        Font titleFont = new Font(Font.SANS_SERIF, Font.BOLD, 64);
         g2d.setFont(titleFont);
         String title = "DEFENDERS OF SOLARA";
         FontMetrics fm = g2d.getFontMetrics();
         int titleWidth = fm.stringWidth(title);
         int left = centerX - titleWidth / 2;
 
-        // Glow border
-        g2d.setColor(new Color(0, 200, 255, 150));
-        for (int i = 3; i > 0; i--) {
-            g2d.drawString(title, left - i, top - i);
-            g2d.drawString(title, left + i, top + i);
-        }
-
-        // Main title text
-        g2d.setColor(new Color(235, 250, 255));
+        // Simple white text (matching reference)
+        g2d.setColor(UITheme.PRIMARY_WHITE);
         g2d.drawString(title, left, top);
 
-        // Ornamental line under title
-        int lineY = top + 12;
-        g2d.setStroke(new BasicStroke(2f));
-        g2d.setColor(new Color(120, 210, 255, 180));
-        int lineMargin = 40;
-        g2d.drawLine(left - lineMargin, lineY, left + titleWidth + lineMargin, lineY);
-
-        // Subtitle
-        Font subtitleFont = new Font("Serif", Font.PLAIN, 24);
+        // Subtitle - simple white text (sans-serif)
+        Font subtitleFont = new Font(Font.SANS_SERIF, Font.PLAIN, 24);
         g2d.setFont(subtitleFont);
-        g2d.setColor(new Color(200, 240, 255));
+        g2d.setColor(UITheme.PRIMARY_WHITE);
         String subtitle = "VEIL SYSTEM CONFLICT";
         FontMetrics sfm = g2d.getFontMetrics();
         int subLeft = centerX - sfm.stringWidth(subtitle) / 2;
@@ -178,43 +161,18 @@ class MenuUI extends JPanel {
     private void drawButton(Graphics2D g2d, MenuButton btn) {
         boolean isHovered = btn == hoveredButton;
 
-        // Underline-only style buttons, text centered at (btn.x, btn.y)
-        Font bodyFont = new Font("Serif", Font.PLAIN, 26);
+        // Simple text buttons matching reference style (sans-serif)
+        Font bodyFont = new Font(Font.SANS_SERIF, Font.PLAIN, 26);
         g2d.setFont(bodyFont);
         FontMetrics fm = g2d.getFontMetrics();
         int textWidth = fm.stringWidth(btn.text);
         int tx = btn.x - textWidth / 2;
         int ty = btn.y;
 
-        // Animated glow circle behind hovered text only
-        if (isHovered) {
-            int glowRadius = 80;
-            float glowAlpha = 0.25f;
-            g2d.setPaint(new RadialGradientPaint(
-                new Point(tx + textWidth / 2, ty - 8),
-                glowRadius,
-                new float[]{0f, 1f},
-                new Color[]{new Color(80, 160, 220, (int) (255 * glowAlpha)),
-                    new Color(80, 160, 220, 0)}
-            ));
-            g2d.fillOval(tx + textWidth / 2 - glowRadius, ty - glowRadius, glowRadius * 2, glowRadius * 2);
-        }
-
+        // Simple white text (matching reference "Continue", "New game", "Options")
         g2d.setFont(bodyFont.deriveFont(isHovered ? Font.BOLD : Font.PLAIN));
-        g2d.setColor(isHovered ? new Color(230, 245, 255) : new Color(210, 225, 240));
+        g2d.setColor(UITheme.PRIMARY_WHITE);
         g2d.drawString(btn.text, tx, ty);
-
-        // Underline
-        int lineY = ty + 6;
-        int linePad = 4;
-        if (isHovered) {
-            g2d.setColor(new Color(120, 210, 255));
-            g2d.setStroke(new BasicStroke(2.5f));
-        } else {
-            g2d.setColor(new Color(120, 150, 190, 180));
-            g2d.setStroke(new BasicStroke(1.5f));
-        }
-        g2d.drawLine(tx - linePad, lineY, tx + textWidth + linePad, lineY);
     }
 
     private static class MenuButton {

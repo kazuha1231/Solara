@@ -16,7 +16,6 @@ import java.awt.image.BufferedImage;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Toolkit;
-import javax.imageio.ImageIO;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -53,7 +52,8 @@ public class UnifiedGameUI extends JFrame {
 
     private final CardLayout cardLayout;
     private final JPanel mainContainer;
-    private BufferedImage bgImage;
+    private final Map<Integer, ImageIcon> worldIcons = new HashMap<>();
+    private String currentScreen = SCREEN_MAIN_MENU;
 
     private int selectedWorldId = 1;
     private Character[] playerTeam;
@@ -107,8 +107,8 @@ public class UnifiedGameUI extends JFrame {
         setLocationRelativeTo(null);
         setResizable(false);
         configureDisplayScale();
-        loadBackground();
         initializeProfiles();
+        loadWorldIcons();
         cardLayout = new CardLayout();
         mainContainer = new JPanel(cardLayout);
 
@@ -134,10 +134,15 @@ public class UnifiedGameUI extends JFrame {
         glass.setOpaque(false);
         setGlassPane(glass);
         glass.setVisible(true);
+        updateCurrentScreen(SCREEN_MAIN_MENU);
         showScreen(SCREEN_MAIN_MENU);
 
         setVisible(true);
         setupGlobalKeyBindings();
+    }
+    
+    private void updateCurrentScreen(String screenName) {
+        currentScreen = screenName;
     }
 
     // ==================== NAVIGATION ====================
@@ -208,6 +213,7 @@ public class UnifiedGameUI extends JFrame {
                         fadeAlpha = 1f;
                         // switch screen at full black
                         cardLayout.show(mainContainer, targetScreen);
+                        updateCurrentScreen(targetScreen);
                         switched = true;
                     }
                 } else {
@@ -273,19 +279,7 @@ public class UnifiedGameUI extends JFrame {
     }
 
     // ==================== BACKGROUND ====================
-
-    private void loadBackground() {
-        try {
-            // Use the new main menu artwork as the global background
-            java.net.URL imgURL = getClass().getResource("/image/menu.png");
-            if (imgURL != null) {
-                bgImage = ImageIO.read(imgURL);
-                System.out.println("✓ Background loaded!");
-            }
-        } catch (IOException e) {
-            System.out.println("○ Using gradient background");
-        }
-    }
+    // Background is now a solid dark color matching the reference style
 
     private void initializeProfiles() {
         try {
@@ -304,29 +298,108 @@ public class UnifiedGameUI extends JFrame {
         playerProgress = profileSlots[activeProfile];
     }
 
+    private void loadWorldIcons() {
+        worldIcons.clear();
+        String[] resources = {
+            "/image/ChronovaleWorld.gif",
+            "/image/GravemireWorld.gif",
+            "/image/AetherionWorld.gif",
+            "/image/ElarionWorld.gif",
+            "/image/Umbros.gif"
+        };
+        System.out.println("Loading world icons...");
+        for (int i = 0; i < resources.length; i++) {
+            ImageIcon icon = loadWorldIcon(resources[i]);
+            if (icon != null) {
+                worldIcons.put(i + 1, icon);
+                System.out.println("  ✓ World " + (i + 1) + " icon loaded");
+            } else {
+                System.err.println("  ✗ World " + (i + 1) + " icon failed to load");
+            }
+        }
+        System.out.println("Total icons loaded: " + worldIcons.size() + "/5");
+    }
+
+    private ImageIcon loadWorldIcon(String resourcePath) {
+        try {
+            java.net.URL url = getClass().getResource(resourcePath);
+            if (url == null) {
+                System.err.println("ERROR: Resource not found: " + resourcePath);
+                return null;
+            }
+            
+            // Load GIF directly as ImageIcon to preserve animation
+            // Don't scale here - we'll handle sizing in the JLabel
+            ImageIcon icon = new ImageIcon(url);
+            
+            // Check if icon loaded successfully
+            if (icon.getIconWidth() <= 0 || icon.getIconHeight() <= 0) {
+                System.err.println("ERROR: Invalid icon dimensions for: " + resourcePath);
+                return null;
+            }
+            
+            System.out.println("✓ Loaded: " + resourcePath + " (" + icon.getIconWidth() + "x" + icon.getIconHeight() + ")");
+            return icon;
+        } catch (Exception e) {
+            System.err.println("ERROR loading world art: " + resourcePath);
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * Creates a scaled ImageIcon that preserves GIF animation.
+     * Uses a custom ImageIcon that scales during rendering without breaking animation.
+     */
+    private ImageIcon createScaledAnimatedIcon(ImageIcon original, int targetSize) {
+        if (original == null || original.getIconWidth() <= 0) {
+            return original;
+        }
+        
+        // Store reference to original for animation
+        final Image originalImage = original.getImage();
+        
+        // Create a custom ImageIcon that scales the animated image during painting
+        // This preserves the animation because we're drawing the original animated Image
+        return new ImageIcon() {
+            @Override
+            public synchronized void paintIcon(Component c, Graphics g, int x, int y) {
+                if (originalImage != null) {
+                    Graphics2D g2d = (Graphics2D) g.create();
+                    g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                    g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                    g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    // Draw the animated image scaled - this preserves animation
+                    g2d.drawImage(originalImage, x, y, targetSize, targetSize, c);
+                    g2d.dispose();
+                }
+            }
+            
+            @Override
+            public int getIconWidth() {
+                return targetSize;
+            }
+            
+            @Override
+            public int getIconHeight() {
+                return targetSize;
+            }
+            
+            @Override
+            public Image getImage() {
+                return originalImage;
+            }
+        };
+    }
+
     /**
      * Utility for other panels to paint the shared background consistently.
      */
     void paintBackground(Graphics2D g2d, int width, int height) {
-                if (bgImage != null) {
-                    int iw = bgImage.getWidth(), ih = bgImage.getHeight();
-            double scale = Math.max((double) width / iw, (double) height / ih);
-                    int sw = (int) (iw * scale), sh = (int) (ih * scale);
-            int x = (width - sw) / 2, y = (height - sh) / 2;
-            g2d.drawImage(bgImage, x, y, sw, sh, null);
-                } else {
-                    GradientPaint gp = new GradientPaint(
-                        0, 0, new Color(10, 15, 25),
-                0, height, new Color(20, 30, 45)
-                    );
-                    g2d.setPaint(gp);
-            g2d.fillRect(0, 0, width, height);
-                }
-
-                // Dark overlay for readability
-                g2d.setColor(new Color(0, 0, 0, 80));
+        // Very dark blue-gray/charcoal background matching reference
+        g2d.setColor(UITheme.BG_DARK_TEAL);
         g2d.fillRect(0, 0, width, height);
-            }
+    }
 
     private JPanel createBackgroundPanel() {
         return new JPanel() {
@@ -554,7 +627,7 @@ public class UnifiedGameUI extends JFrame {
 
         JTextArea storyText = new JTextArea();
         storyText.setFont(UITheme.FONT_TEXT_LARGE);
-        storyText.setForeground(UITheme.PRIMARY_CYAN);
+        storyText.setForeground(UITheme.PRIMARY_ORANGE);
         storyText.setEditable(false);
         storyText.setLineWrap(true);
         storyText.setWrapStyleWord(true);
@@ -641,7 +714,7 @@ public class UnifiedGameUI extends JFrame {
             ),
             SwingConstants.CENTER
         );
-        levelInfo.setForeground(UITheme.PRIMARY_CYAN);
+        levelInfo.setForeground(UITheme.PRIMARY_ORANGE);
         levelInfo.setFont(UITheme.FONT_TEXT);
 
         JPanel titlePanel = new JPanel(new GridLayout(2, 1));
@@ -679,15 +752,62 @@ public class UnifiedGameUI extends JFrame {
     }
 
     private JPanel createWorldCard(int worldId, String name, String core, boolean isUnlocked) {
-        JPanel card = new JPanel();
-        card.setLayout(new BorderLayout(10, 10));
-        card.setBackground(isUnlocked ?
-            new Color(20, 20, 50, 200) :
-            new Color(50, 50, 50, 200)
-        );
-        card.setBorder(BorderFactory.createLineBorder(
-            isUnlocked ? UITheme.PRIMARY_CYAN : UITheme.TEXT_GRAY, 3
-        ));
+        // Simple palette-based card with transparency control
+        final boolean[] isHovered = {false};
+        int prefW = Math.round(220 * UITheme.getScaleFactor());
+        int prefH = Math.round(320 * UITheme.getScaleFactor());
+        
+        JPanel card = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g.create();
+                // Use nearest neighbor for pixel-art look
+                g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+                
+                // Dark background
+                Color bg = isUnlocked 
+                    ? (isHovered[0] ? new Color(UITheme.BG_CARD.getRed() + 10, UITheme.BG_CARD.getGreen() + 10, UITheme.BG_CARD.getBlue() + 10)
+                                     : UITheme.BG_CARD)
+                    : new Color(UITheme.BG_CARD.getRed() - 10, UITheme.BG_CARD.getGreen() - 10, UITheme.BG_CARD.getBlue() - 10);
+                
+                g2d.setColor(bg);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+                
+                // Use Panel asset (includes background and border) - matching reference style
+                BufferedImage panelImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Panel/panel-000.png");
+                if (panelImg != null) {
+                    float alpha = isUnlocked ? (isHovered[0] ? 1.0f : 0.9f) : 0.5f;
+                    g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                    PixelArtUI.drawNineSlice(g2d, panelImg, 0, 0, getWidth(), getHeight());
+                } else {
+                    // Fallback: dark background with border
+                    g2d.setColor(UITheme.BG_CARD);
+                    g2d.fillRect(0, 0, getWidth(), getHeight());
+                    
+                    BufferedImage borderImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Border/panel-border-000.png");
+                    if (borderImg != null) {
+                        float alpha = isUnlocked ? (isHovered[0] ? 1.0f : 0.9f) : 0.5f;
+                        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                        PixelArtUI.drawNineSlice(g2d, borderImg, 0, 0, getWidth(), getHeight());
+                    } else {
+                        Color borderColor = isUnlocked && isHovered[0] 
+                            ? UITheme.BORDER_HIGHLIGHT 
+                            : isUnlocked 
+                                ? UITheme.BORDER_NORMAL
+                                : new Color(UITheme.BORDER_NORMAL.getRed(), UITheme.BORDER_NORMAL.getGreen(), UITheme.BORDER_NORMAL.getBlue(), 100);
+                        g2d.setColor(borderColor);
+                        g2d.setStroke(new BasicStroke(2f));
+                        g2d.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
+                    }
+                }
+                
+                g2d.dispose();
+            }
+        };
+        card.setOpaque(false);
+        card.setBorder(new EmptyBorder(12, 12, 12, 12));
+        card.setPreferredSize(new Dimension(prefW, prefH));
         card.setCursor(isUnlocked ?
             Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) :
             Cursor.getDefaultCursor()
@@ -695,11 +815,11 @@ public class UnifiedGameUI extends JFrame {
 
         JLabel worldLabel = new JLabel("WORLD " + worldId, SwingConstants.CENTER);
         worldLabel.setFont(UITheme.FONT_HEADER);
-        worldLabel.setForeground(isUnlocked ? UITheme.PRIMARY_CYAN : UITheme.TEXT_GRAY);
+        worldLabel.setForeground(isUnlocked ? UITheme.PRIMARY_GREEN : UITheme.TEXT_GRAY);
 
         JLabel nameLabel = new JLabel(name, SwingConstants.CENTER);
         nameLabel.setFont(UITheme.FONT_TEXT);
-        nameLabel.setForeground(isUnlocked ? Color.WHITE : UITheme.TEXT_GRAY);
+        nameLabel.setForeground(isUnlocked ? UITheme.PRIMARY_WHITE : UITheme.TEXT_GRAY);
 
         JLabel coreLabel = new JLabel("Core: " + core, SwingConstants.CENTER);
         coreLabel.setFont(UITheme.FONT_TEXT);
@@ -719,17 +839,57 @@ public class UnifiedGameUI extends JFrame {
         }
         JLabel statusLabel = new JLabel(statusText, SwingConstants.CENTER);
         statusLabel.setFont(UITheme.FONT_SMALL);
-        statusLabel.setForeground(isUnlocked ? UITheme.PRIMARY_CYAN : UITheme.TEXT_GRAY);
+        statusLabel.setForeground(isUnlocked ? UITheme.PRIMARY_ORANGE : UITheme.TEXT_GRAY);
+        statusLabel.setBorder(new EmptyBorder(6, 0, 0, 0));
 
-        JPanel infoPanel = new JPanel(new GridLayout(4, 1, 5, 5));
-        infoPanel.setOpaque(false);
-        infoPanel.add(worldLabel);
-        infoPanel.add(nameLabel);
-        infoPanel.add(coreLabel);
-        infoPanel.add(statusLabel);
+        JPanel contentPanel = new JPanel();
+        contentPanel.setOpaque(false);
+        contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
 
-        card.add(infoPanel, BorderLayout.CENTER);
+        ImageIcon animatedIcon = worldIcons.get(worldId);
+        JLabel iconLabel = null;
+        
+        if (animatedIcon != null) {
+            // Create a scaled version that preserves animation
+            int targetSize = Math.round(110 * UITheme.getScaleFactor());
+            final ImageIcon scaledAnimatedIcon = createScaledAnimatedIcon(animatedIcon, targetSize);
+            
+            System.out.println("Creating icon label for World " + worldId + " (size: " + targetSize + ")");
+            
+            // Always show the icon - will be animated GIF (works for both locked and unlocked)
+            iconLabel = new JLabel(scaledAnimatedIcon, SwingConstants.CENTER);
+            iconLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            iconLabel.setBorder(new EmptyBorder(10, 0, 10, 0));
+            iconLabel.setOpaque(false);
+            iconLabel.setVisible(true); // Explicitly make it visible
+            // Add icon FIRST so it appears at the top
+            contentPanel.add(iconLabel);
+            System.out.println("  ✓ Icon label added to World " + worldId + " card");
+        } else {
+            // Debug: check if icon failed to load
+            System.err.println("Warning: No icon found for World " + worldId + " (total loaded: " + worldIcons.size() + ")");
+            // Add spacer at the top if no icon
+            contentPanel.add(Box.createVerticalStrut(20));
+        }
 
+        worldLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        nameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        coreLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        statusLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        contentPanel.add(worldLabel);
+        contentPanel.add(Box.createVerticalStrut(6));
+        contentPanel.add(nameLabel);
+        contentPanel.add(Box.createVerticalStrut(4));
+        contentPanel.add(coreLabel);
+        contentPanel.add(Box.createVerticalStrut(6));
+        contentPanel.add(statusLabel);
+
+        card.add(contentPanel, BorderLayout.CENTER);
+
+        // Store reference to iconLabel for hover animation control
+        final JLabel finalIconLabel = iconLabel;
+        
         if (isUnlocked) {
             card.addMouseListener(new MouseAdapter() {
                 @Override
@@ -739,14 +899,22 @@ public class UnifiedGameUI extends JFrame {
 
                 @Override
                 public void mouseEntered(MouseEvent e) {
-                    card.setBackground(new Color(40, 40, 80, 200));
-                    card.setBorder(BorderFactory.createLineBorder(UITheme.BORDER_HOVER, 3));
+                    isHovered[0] = true;
+                    card.repaint();
+                    // Icon is already showing and animating
+                    if (finalIconLabel != null) {
+                        card.repaint();
+                    }
                 }
 
                 @Override
                 public void mouseExited(MouseEvent e) {
-                    card.setBackground(new Color(20, 20, 50, 200));
-                    card.setBorder(BorderFactory.createLineBorder(UITheme.PRIMARY_CYAN, 3));
+                    isHovered[0] = false;
+                    card.repaint();
+                    // Icon continues to show and animate
+                    if (finalIconLabel != null) {
+                        card.repaint();
+                    }
                 }
             });
         }
@@ -762,7 +930,7 @@ public class UnifiedGameUI extends JFrame {
 
         JTextArea storyText = new JTextArea();
         storyText.setFont(UITheme.FONT_TEXT);
-        storyText.setForeground(UITheme.PRIMARY_CYAN);
+        storyText.setForeground(UITheme.PRIMARY_ORANGE);
         storyText.setBackground(new Color(0, 0, 0, 0));
         storyText.setEditable(false);
         storyText.setLineWrap(true);
@@ -806,7 +974,7 @@ public class UnifiedGameUI extends JFrame {
         waitingForTarget = false;
 
         JPanel panel = new JPanel(new BorderLayout(10, 10));
-        panel.setBackground(UITheme.BG_DARK);
+        panel.setOpaque(false);
         panel.setBorder(new EmptyBorder(10, 10, 10, 10));
 
         panel.add(createBattleTopPanel(worldId), BorderLayout.NORTH);
@@ -843,9 +1011,29 @@ public class UnifiedGameUI extends JFrame {
         int levelTarget = WORLD_ENEMY_LEVEL[index] + (waveNumber / 2);
         double difficulty = 1.0 + (waveNumber - 1) * 0.05;
 
-        for (int i = 0; i < count; i++) {
-            MinionTemplate template = pool.get(random.nextInt(pool.size()));
-            enemies[i] = template.instantiate(levelTarget, difficulty);
+        if (pool.isEmpty()) {
+            // Fallback: create a basic enemy if pool is empty
+            System.err.println("Warning: Minion pool is empty for world " + worldId);
+            for (int i = 0; i < count; i++) {
+                // Create a basic minion with default stats
+                DynamicEnemy minion = new DynamicEnemy(
+                    "Minion",
+                    100 + levelTarget * 20,
+                    50 + levelTarget * 10,
+                    20 + levelTarget * 3,
+                    15 + levelTarget * 2,
+                    30 + levelTarget,
+                    () -> new SavageSwipeSkill("Strike", 1.0)
+                );
+                minion.syncToLevel(levelTarget);
+                minion.applyStatMultiplier(difficulty, difficulty, difficulty, difficulty);
+                enemies[i] = minion;
+            }
+        } else {
+            for (int i = 0; i < count; i++) {
+                MinionTemplate template = pool.get(random.nextInt(pool.size()));
+                enemies[i] = template.instantiate(levelTarget, difficulty);
+            }
         }
         return enemies;
     }
@@ -857,12 +1045,14 @@ public class UnifiedGameUI extends JFrame {
 
         int supporters = 1 + random.nextInt(2); // 1-2 supports
         List<MinionTemplate> pool = getMinionPool(worldId);
-        for (int i = 0; i < supporters; i++) {
-            MinionTemplate template = pool.get(random.nextInt(pool.size()));
-            roster.add(template.instantiate(
-                WORLD_ENEMY_LEVEL[Math.min(worldId - 1, WORLD_ENEMY_LEVEL.length - 1)] + 2,
-                1.25
-            ));
+        if (!pool.isEmpty()) {
+            for (int i = 0; i < supporters; i++) {
+                MinionTemplate template = pool.get(random.nextInt(pool.size()));
+                roster.add(template.instantiate(
+                    WORLD_ENEMY_LEVEL[Math.min(worldId - 1, WORLD_ENEMY_LEVEL.length - 1)] + 2,
+                    1.25
+                ));
+            }
         }
         return roster.toArray(new Character[0]);
     }
@@ -1085,21 +1275,35 @@ public class UnifiedGameUI extends JFrame {
     }
 
     private JPanel createBattleTopPanel(int worldId) {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setBackground(UITheme.BG_DARK);
+        // Simple panel with palette colors
+        JPanel panel = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2d.setColor(UITheme.BG_PANEL);
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2d.setColor(UITheme.BORDER_NORMAL);
+                g2d.setStroke(new BasicStroke(2f));
+                g2d.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 8, 8);
+                g2d.dispose();
+            }
+        };
+        panel.setOpaque(false);
         panel.setBorder(new EmptyBorder(10, 10, 10, 10));
 
         JLabel titleLabel = new JLabel("WORLD " + worldId + " - BATTLE", SwingConstants.CENTER);
         titleLabel.setFont(UITheme.FONT_SUBTITLE);
-        titleLabel.setForeground(UITheme.PRIMARY_CYAN);
+        titleLabel.setForeground(UITheme.PRIMARY_GREEN);
 
         battleTurnLabel = new JLabel("Preparing...", SwingConstants.CENTER);
         battleTurnLabel.setFont(UITheme.FONT_HEADER);
-        battleTurnLabel.setForeground(UITheme.PRIMARY_YELLOW);
+        battleTurnLabel.setForeground(UITheme.PRIMARY_WHITE);
 
         battleWaveLabel = new JLabel("", SwingConstants.CENTER);
         battleWaveLabel.setFont(UITheme.FONT_SMALL);
-        battleWaveLabel.setForeground(UITheme.PRIMARY_CYAN);
+        battleWaveLabel.setForeground(UITheme.PRIMARY_GREEN);
 
         panel.add(titleLabel, BorderLayout.NORTH);
         panel.add(battleTurnLabel, BorderLayout.CENTER);
@@ -1110,27 +1314,81 @@ public class UnifiedGameUI extends JFrame {
 
     private JPanel createBattleCenterPanel() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
-        panel.setBackground(UITheme.BG_DARK);
+        panel.setOpaque(false);
 
-        battlePlayerPanel = new JPanel();
+        battlePlayerPanel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+                g2d.setColor(UITheme.BG_PLAYER);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+                
+                // Use Panel asset (includes background and border)
+                BufferedImage panelImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Panel/panel-000.png");
+                if (panelImg != null) {
+                    PixelArtUI.drawNineSlice(g2d, panelImg, 0, 0, getWidth(), getHeight());
+                } else {
+                    // Fallback
+                    BufferedImage borderImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Border/panel-border-000.png");
+                    if (borderImg != null) {
+                        PixelArtUI.drawNineSlice(g2d, borderImg, 0, 0, getWidth(), getHeight());
+                    } else {
+                        g2d.setColor(UITheme.BORDER_NORMAL);
+                        g2d.setStroke(new BasicStroke(2f));
+                        g2d.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
+                    }
+                }
+                g2d.dispose();
+            }
+        };
         battlePlayerPanel.setLayout(new BoxLayout(battlePlayerPanel, BoxLayout.Y_AXIS));
-        battlePlayerPanel.setBackground(UITheme.BG_PLAYER);
-        battlePlayerPanel.setBorder(UITheme.createTitledBorder("YOUR TEAM", UITheme.PRIMARY_CYAN, UITheme.PRIMARY_CYAN));
+        battlePlayerPanel.setOpaque(false);
+        battlePlayerPanel.setBorder(UITheme.createTitledBorder("YOUR TEAM", UITheme.PRIMARY_GREEN, UITheme.BORDER_NORMAL));
 
         battleLog = new JTextArea();
         battleLog.setFont(UITheme.FONT_LOG);
         battleLog.setEditable(false);
         battleLog.setLineWrap(true);
         battleLog.setWrapStyleWord(true);
-        battleLog.setBackground(new Color(10, 10, 20));
+        // Dark but readable background with good text contrast
+        battleLog.setBackground(new Color(15, 20, 25));
         battleLog.setForeground(UITheme.LOG_TEXT);
+        battleLog.setOpaque(true);
         JScrollPane logScroll = new JScrollPane(battleLog);
         logScroll.setPreferredSize(new Dimension(400, 400));
 
-        battleEnemyPanel = new JPanel();
+        battleEnemyPanel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+                g2d.setColor(UITheme.BG_ENEMY);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+                
+                // Use Panel asset (includes background and border)
+                BufferedImage panelImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Panel/panel-000.png");
+                if (panelImg != null) {
+                    PixelArtUI.drawNineSlice(g2d, panelImg, 0, 0, getWidth(), getHeight());
+                } else {
+                    // Fallback
+                    BufferedImage borderImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Border/panel-border-000.png");
+                    if (borderImg != null) {
+                        PixelArtUI.drawNineSlice(g2d, borderImg, 0, 0, getWidth(), getHeight());
+                    } else {
+                        g2d.setColor(UITheme.BORDER_NORMAL);
+                        g2d.setStroke(new BasicStroke(2f));
+                        g2d.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
+                    }
+                }
+                g2d.dispose();
+            }
+        };
         battleEnemyPanel.setLayout(new BoxLayout(battleEnemyPanel, BoxLayout.Y_AXIS));
-        battleEnemyPanel.setBackground(UITheme.BG_ENEMY);
-        battleEnemyPanel.setBorder(UITheme.createTitledBorder("ENEMIES", UITheme.PRIMARY_RED, UITheme.PRIMARY_RED));
+        battleEnemyPanel.setOpaque(false);
+        battleEnemyPanel.setBorder(UITheme.createTitledBorder("ENEMIES", UITheme.PRIMARY_GREEN, UITheme.BORDER_NORMAL));
 
         buildBattleCharacterPanels();
 
@@ -1142,13 +1400,27 @@ public class UnifiedGameUI extends JFrame {
     }
 
     private JPanel createBattleBottomPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setBackground(UITheme.BG_DARK);
+        // Simple panel with palette colors
+        JPanel panel = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2d.setColor(UITheme.BG_PANEL);
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2d.setColor(UITheme.BORDER_NORMAL);
+                g2d.setStroke(new BasicStroke(2f));
+                g2d.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 8, 8);
+                g2d.dispose();
+            }
+        };
+        panel.setOpaque(false);
         panel.setBorder(new EmptyBorder(10, 10, 10, 10));
 
         battleInstructionLabel = new JLabel("Select a skill", SwingConstants.CENTER);
         battleInstructionLabel.setFont(UITheme.FONT_BUTTON_SMALL);
-        battleInstructionLabel.setForeground(UITheme.PRIMARY_CYAN);
+        battleInstructionLabel.setForeground(UITheme.PRIMARY_ORANGE);
 
         battleSkillPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
         battleSkillPanel.setBackground(new Color(30, 30, 50));
@@ -1220,7 +1492,7 @@ public class UnifiedGameUI extends JFrame {
     }
 
     private static class PausePanel extends JPanel {
-        private float reveal = 0f;
+        private float alpha = 0f;
         private javax.swing.Timer animation;
 
         PausePanel() {
@@ -1231,10 +1503,10 @@ public class UnifiedGameUI extends JFrame {
         }
 
         private void startAnimation() {
-            animation = new javax.swing.Timer(15, e -> {
-                reveal = Math.min(1f, reveal + 0.08f);
+            animation = new javax.swing.Timer(16, e -> {
+                alpha = Math.min(1f, alpha + 0.1f);
                 repaint();
-                if (reveal >= 1f) {
+                if (alpha >= 1f) {
                     animation.stop();
                 }
             });
@@ -1245,19 +1517,42 @@ public class UnifiedGameUI extends JFrame {
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
             Graphics2D g2 = (Graphics2D) g.create();
-            float eased = (float) Math.pow(reveal, 0.85);
-            int inset = (int) (40 * (1f - eased));
-            int width = getWidth() - inset * 2;
-            int height = getHeight() - inset * 2;
-            g2.translate(inset, inset);
-            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.2f + 0.65f * eased));
-            g2.setPaint(new GradientPaint(0, 0, new Color(4, 8, 16, 230),
-                width, height, new Color(12, 24, 44, 240)));
-            g2.fillRoundRect(0, 0, width, height, 28, 28);
-            g2.setComposite(AlphaComposite.SrcOver);
-            g2.setColor(new Color(0, 220, 255, (int) (180 * eased)));
-            g2.setStroke(new BasicStroke(2f));
-            g2.drawRoundRect(1, 1, width - 2, height - 2, 28, 28);
+            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+            
+            // Dark background with fade
+            float panelAlpha = 0.4f + 0.5f * alpha;
+            Color bgColor = new Color(UITheme.BG_PANEL.getRed(), UITheme.BG_PANEL.getGreen(), UITheme.BG_PANEL.getBlue(), (int)(255 * panelAlpha));
+            g2.setColor(bgColor);
+            g2.fillRect(0, 0, getWidth(), getHeight());
+            
+            // Use Panel asset with fade
+            BufferedImage panelImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Panel/panel-000.png");
+            if (panelImg != null) {
+                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                PixelArtUI.drawNineSlice(g2, panelImg, 0, 0, getWidth(), getHeight());
+            } else {
+                // Fallback: border with fade
+                BufferedImage borderImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Border/panel-border-000.png");
+                if (borderImg != null) {
+                    g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                    PixelArtUI.drawNineSlice(g2, borderImg, 0, 0, getWidth(), getHeight());
+                } else {
+                    Color borderColor = new Color(UITheme.BORDER_NORMAL.getRed(), UITheme.BORDER_NORMAL.getGreen(), UITheme.BORDER_NORMAL.getBlue(), (int)(255 * alpha));
+                    g2.setColor(borderColor);
+                    g2.setStroke(new BasicStroke(2f));
+                    g2.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
+                }
+            }
+            
+            g2.dispose();
+        }
+        
+        @Override
+        protected void paintChildren(Graphics g) {
+            // Fade in children (buttons and text) along with the background
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            super.paintChildren(g2);
             g2.dispose();
         }
     }
@@ -1414,15 +1709,44 @@ public class UnifiedGameUI extends JFrame {
     }
 
     private JPanel createBattleCharacterCard(Character c, boolean isPlayer) {
-        JPanel card = new JPanel(new BorderLayout(5, 5));
+        // Pixel-art character card
+        JPanel card = new JPanel(new BorderLayout(5, 5)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+                
+                // Dark background
+                Color bg = isPlayer ? UITheme.BG_PLAYER : UITheme.BG_ENEMY;
+                g2d.setColor(bg);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+                
+                // Use Panel asset (includes background and border)
+                BufferedImage panelImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Panel/panel-000.png");
+                if (panelImg != null) {
+                    PixelArtUI.drawNineSlice(g2d, panelImg, 0, 0, getWidth(), getHeight());
+                } else {
+                    // Fallback
+                    BufferedImage borderImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Border/panel-border-000.png");
+                    if (borderImg != null) {
+                        PixelArtUI.drawNineSlice(g2d, borderImg, 0, 0, getWidth(), getHeight());
+                    } else {
+                        g2d.setColor(UITheme.BORDER_NORMAL);
+                        g2d.setStroke(new BasicStroke(2f));
+                        g2d.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
+                    }
+                }
+                g2d.dispose();
+            }
+        };
+        card.setOpaque(false);
         card.setPreferredSize(UITheme.CHARACTER_CARD);
         card.setMaximumSize(UITheme.CHARACTER_CARD);
-        card.setBackground(isPlayer ? new Color(40, 60, 90) : new Color(90, 40, 40));
-        card.setBorder(BorderFactory.createLineBorder(UITheme.BORDER_NORMAL, 2));
 
         JLabel nameLabel = new JLabel(c.name);
         nameLabel.setFont(UITheme.FONT_CARD_NAME);
-        nameLabel.setForeground(Color.WHITE);
+        nameLabel.setForeground(UITheme.PRIMARY_WHITE);
         nameLabel.setHorizontalAlignment(SwingConstants.CENTER);
 
         JProgressBar hpBar = new JProgressBar(0, c.maxHP);
@@ -1509,7 +1833,7 @@ public class UnifiedGameUI extends JFrame {
         Character current = playerTeam[currentPlayerIndex];
         battleTurnLabel.setText("PLAYER TURN: " + current.name);
         battleInstructionLabel.setText("Select a skill for " + current.name);
-        battleInstructionLabel.setForeground(UITheme.PRIMARY_CYAN);
+        battleInstructionLabel.setForeground(UITheme.PRIMARY_ORANGE);
 
         loadBattleSkillButtons(current);
         updateBattleBars();
@@ -1525,18 +1849,20 @@ public class UnifiedGameUI extends JFrame {
         for (Skill skill : character.skills) {
             JButton skillBtn = new JButton(skill.getInfo());
             skillBtn.setFont(UITheme.FONT_SKILL);
-            skillBtn.setForeground(UITheme.PRIMARY_CYAN);
-            skillBtn.setBackground(UITheme.BG_BUTTON);
+            skillBtn.setForeground(UITheme.PRIMARY_ORANGE);
+            skillBtn.setBackground(new Color(UITheme.BG_BUTTON.getRed(), UITheme.BG_BUTTON.getGreen(), UITheme.BG_BUTTON.getBlue(), 220));
+            skillBtn.setOpaque(true);
             skillBtn.setFocusPainted(false);
-            skillBtn.setBorder(UITheme.createCyanBorder(2));
+            skillBtn.setBorder(BorderFactory.createLineBorder(UITheme.BORDER_NORMAL, 2));
             skillBtn.setPreferredSize(UITheme.SKILL_BUTTON);
 
             boolean canUse = skill.canUse(character);
             skillBtn.setEnabled(canUse);
 
             if (!canUse) {
-                skillBtn.setForeground(UITheme.TEXT_GRAY);
-                skillBtn.setBorder(BorderFactory.createLineBorder(UITheme.TEXT_GRAY, 2));
+                skillBtn.setForeground(new Color(UITheme.TEXT_GRAY.getRed(), UITheme.TEXT_GRAY.getGreen(), UITheme.TEXT_GRAY.getBlue(), 150));
+                skillBtn.setBackground(new Color(UITheme.BG_BUTTON.getRed() - 10, UITheme.BG_BUTTON.getGreen() - 10, UITheme.BG_BUTTON.getBlue() - 10, 150));
+                skillBtn.setBorder(BorderFactory.createLineBorder(new Color(UITheme.BORDER_NORMAL.getRed(), UITheme.BORDER_NORMAL.getGreen(), UITheme.BORDER_NORMAL.getBlue(), 100), 2));
             }
 
             skillBtn.addActionListener(e -> onBattleSkillSelected(skill, character));
@@ -1786,7 +2112,10 @@ public class UnifiedGameUI extends JFrame {
         am.put("pauseMenu", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                showPauseMenu();
+                // Only show pause menu when in battle
+                if (SCREEN_BATTLE.equals(currentScreen)) {
+                    showPauseMenu();
+                }
             }
         });
     }
@@ -1806,7 +2135,7 @@ public class UnifiedGameUI extends JFrame {
 
         JLabel pauseLabel = new JLabel("PAUSED", SwingConstants.CENTER);
         pauseLabel.setFont(UITheme.FONT_SUBTITLE);
-        pauseLabel.setForeground(UITheme.PRIMARY_CYAN);
+        pauseLabel.setForeground(UITheme.PRIMARY_GREEN);
         gbc.gridy = 0;
         glassPanel.add(pauseLabel, gbc);
 
