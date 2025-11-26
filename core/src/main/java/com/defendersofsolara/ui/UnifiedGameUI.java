@@ -195,10 +195,21 @@ public class UnifiedGameUI extends JFrame {
             }
             saveActiveProfile(); // Save previous profile before switching
             activeProfile = idx;
-            // Ensure we have a valid progress object for the selected profile
+            
+            // Load profile from disk if not already in memory
             if (profileSlots[activeProfile] == null) {
-                profileSlots[activeProfile] = new PlayerProgress();
+                Path file = SAVE_DIR.resolve("profile" + (activeProfile + 1) + ".dat");
+                PlayerProgress loaded = PlayerProgress.load(file);
+                if (loaded != null) {
+                    profileSlots[activeProfile] = loaded;
+                    System.out.println("Loaded profile " + (activeProfile + 1) + " from disk: Level " + loaded.getPlayerLevel() + 
+                        ", EXP " + loaded.getCurrentExp() + "/" + loaded.getExpToNext() + 
+                        ", Worlds: " + loaded.getClearedWorldCount());
+                } else {
+                    profileSlots[activeProfile] = new PlayerProgress();
+                }
             }
+            
             playerProgress = profileSlots[activeProfile];
             // Start session for new profile
             if (playerProgress != null) {
@@ -836,6 +847,31 @@ public class UnifiedGameUI extends JFrame {
     // ==================== WORLD SELECTION ====================
 
     private JPanel createWorldSelection() {
+        // Ensure playerProgress is set - if not, load it from the active profile
+        if (playerProgress == null && activeProfile >= 0) {
+            if (profileSlots[activeProfile] == null) {
+                Path file = SAVE_DIR.resolve("profile" + (activeProfile + 1) + ".dat");
+                PlayerProgress loaded = PlayerProgress.load(file);
+                if (loaded != null) {
+                    profileSlots[activeProfile] = loaded;
+                    playerProgress = loaded;
+                } else {
+                    profileSlots[activeProfile] = new PlayerProgress();
+                    playerProgress = profileSlots[activeProfile];
+                }
+            } else {
+                playerProgress = profileSlots[activeProfile];
+            }
+        }
+        
+        // Safety check - if still null, create a new progress
+        if (playerProgress == null) {
+            playerProgress = new PlayerProgress();
+            if (activeProfile >= 0) {
+                profileSlots[activeProfile] = playerProgress;
+            }
+        }
+        
         JPanel panel = new JPanel(new BorderLayout(10, 10)) {
             @Override
             protected void paintComponent(Graphics g) {
@@ -3108,6 +3144,8 @@ public class UnifiedGameUI extends JFrame {
         PauseMenuButton saveBtn = new PauseMenuButton("SAVE", dialog, () -> {
             saveActiveProfile();
             appendBattleLog("\n💾 Game saved!");
+            // Refresh profile select screen to show updated data
+            refreshProfileSelect();
             JOptionPane.showMessageDialog(dialog, "Game saved successfully!", "Save", JOptionPane.INFORMATION_MESSAGE);
         });
         gbc.gridy = 2;
@@ -3215,12 +3253,22 @@ public class UnifiedGameUI extends JFrame {
 
     private void reloadProfilesFromDisk() {
         // Save current active profile before reloading to ensure we don't lose unsaved changes
+        PlayerProgress activeProfileData = null;
         if (activeProfile >= 0 && playerProgress != null) {
+            // Sync current progress to profileSlots before saving
             profileSlots[activeProfile] = playerProgress;
             saveProfile(activeProfile);
+            // Preserve the in-memory data for the active profile (it's the most up-to-date)
+            activeProfileData = playerProgress;
         }
         
         for (int i = 0; i < PROFILE_SLOTS; i++) {
+            // For the active profile, use the in-memory data if available (it's most recent)
+            if (i == activeProfile && activeProfileData != null) {
+                profileSlots[i] = activeProfileData;
+                continue;
+            }
+            
             Path file = SAVE_DIR.resolve("profile" + (i + 1) + ".dat");
             PlayerProgress data = PlayerProgress.load(file);
             if (data != null) {
@@ -3238,8 +3286,9 @@ public class UnifiedGameUI extends JFrame {
         // Update playerProgress if we have an active profile
         if (activeProfile >= 0 && activeProfile < PROFILE_SLOTS) {
             playerProgress = profileSlots[activeProfile];
-            // Start session if we have an active profile
-            if (playerProgress != null && playerProgress.getTotalPlayTimeMs() == 0) {
+            // Start session if we have an active profile and session hasn't started
+            if (playerProgress != null && playerProgress.getTotalPlayTimeMs() == 0 && 
+                currentScreen != null && !currentScreen.equals(SCREEN_MAIN_MENU)) {
                 playerProgress.startSession();
             }
         }
