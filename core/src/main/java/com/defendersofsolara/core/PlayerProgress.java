@@ -6,6 +6,8 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -13,15 +15,18 @@ import java.util.Set;
  * Tracks player level/experience and world unlock progression.
  */
 public class PlayerProgress implements Serializable {
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
 
     private int playerLevel = 1;
     private int currentExp = 0;
     private int expToNext = 150;
     private final Set<Integer> clearedWorlds = new HashSet<>();
     private boolean zyraUnlocked = false;
-    private String profileName = "";
-    private long totalPlaytimeSeconds = 0; // Total playtime in seconds
+    
+    // Time tracking
+    private long totalPlayTimeMs = 0; // Total time played in milliseconds
+    private long sessionStartTime = 0; // When current session started
+    private long lastSaveTime = 0; // Last save timestamp
 
     // Level requirements per world (index 0 -> world 1)
     private static final int[] WORLD_LEVEL_REQ = {1, 3, 6, 9, 12};
@@ -109,46 +114,59 @@ public class PlayerProgress implements Serializable {
         return String.format("Lvl %d  |  EXP %d/%d", playerLevel, currentExp, expToNext);
     }
     
-    public String getProfileName() {
-        if (profileName == null || profileName.trim().isEmpty()) {
-            // Generate default name based on progress
-            if (clearedWorlds.isEmpty()) {
-                return "NEW ADVENTURE";
-            } else if (clearedWorlds.size() == 1) {
-                return "FIRST STEPS";
-            } else if (clearedWorlds.size() == 2) {
-                return "RISING HERO";
-            } else if (clearedWorlds.size() == 3) {
-                return "HALFWAY HOME";
-            } else if (clearedWorlds.size() == 4) {
-                return "NEAR VICTORY";
-            } else {
-                return "LEGENDARY";
-            }
+    // Time tracking methods
+    public void startSession() {
+        sessionStartTime = System.currentTimeMillis();
+    }
+    
+    public void endSession() {
+        if (sessionStartTime > 0) {
+            totalPlayTimeMs += (System.currentTimeMillis() - sessionStartTime);
+            sessionStartTime = 0;
         }
-        return profileName;
     }
     
-    public void setProfileName(String name) {
-        this.profileName = name != null ? name.trim() : "";
+    public void recordSave() {
+        lastSaveTime = System.currentTimeMillis();
     }
     
-    public long getTotalPlaytimeSeconds() {
-        return totalPlaytimeSeconds;
+    public long getTotalPlayTimeMs() {
+        long current = totalPlayTimeMs;
+        if (sessionStartTime > 0) {
+            current += (System.currentTimeMillis() - sessionStartTime);
+        }
+        return current;
     }
     
-    public void addPlaytime(long seconds) {
-        totalPlaytimeSeconds += Math.max(0, seconds);
+    public long getLastSaveTime() {
+        return lastSaveTime;
     }
     
-    public String getFormattedPlaytime() {
-        long totalSeconds = totalPlaytimeSeconds;
+    public String getFormattedPlayTime() {
+        long totalSeconds = getTotalPlayTimeMs() / 1000;
         long hours = totalSeconds / 3600;
         long minutes = (totalSeconds % 3600) / 60;
         if (hours > 0) {
-            return String.format("%dH %dM", hours, minutes);
+            return String.format("%dh %dm", hours, minutes);
         } else {
-            return String.format("%dM", minutes);
+            return String.format("%dm", minutes);
+        }
+    }
+    
+    public String getFormattedLastSaveDate() {
+        if (lastSaveTime == 0) return "Never";
+        SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy HH:mm");
+        return sdf.format(new Date(lastSaveTime));
+    }
+    
+    // Handle serialization version compatibility
+    private void readObject(ObjectInputStream ois) throws IOException, ClassNotFoundException {
+        ois.defaultReadObject();
+        // Initialize new fields for old saves
+        if (totalPlayTimeMs == 0 && sessionStartTime == 0 && lastSaveTime == 0) {
+            totalPlayTimeMs = 0;
+            sessionStartTime = 0;
+            lastSaveTime = 0;
         }
     }
 }

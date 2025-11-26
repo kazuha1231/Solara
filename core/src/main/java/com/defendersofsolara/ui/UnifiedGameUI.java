@@ -55,6 +55,7 @@ public class UnifiedGameUI extends JFrame {
     private final JPanel mainContainer;
     private final Map<Integer, ImageIcon> worldIcons = new HashMap<>();
     private String currentScreen = SCREEN_MAIN_MENU;
+    private boolean settingsOpenedFromPause = false; // Track if settings was opened from pause menu
 
     private int selectedWorldId = 1;
     private Character[] playerTeam;
@@ -71,7 +72,6 @@ public class UnifiedGameUI extends JFrame {
     private final PlayerProgress[] profileSlots = new PlayerProgress[PROFILE_SLOTS];
     private int activeProfile = -1;
     private PlayerProgress playerProgress;
-    private long sessionStartTime = 0; // Track session start for playtime
 
     private static final double[] WORLD_HP_MULT = {1.0, 1.45, 1.95, 2.6, 3.4};
     private static final double[] WORLD_MANA_MULT = {1.0, 1.3, 1.55, 1.9, 2.3};
@@ -120,10 +120,6 @@ public class UnifiedGameUI extends JFrame {
         initializeProfiles();
         loadWorldIcons();
         loadMenuBackground();
-        // Start playtime tracking for initial profile
-        if (activeProfile >= 0) {
-            sessionStartTime = System.currentTimeMillis();
-        }
         cardLayout = new CardLayout();
         mainContainer = new JPanel(cardLayout);
 
@@ -188,25 +184,26 @@ public class UnifiedGameUI extends JFrame {
     int getProfileSlotCount() {
         return PROFILE_SLOTS;
     }
-    
-    ImageIcon getWorldIcon(int worldId) {
-        return worldIcons.get(worldId);
-    }
 
     // for Start Game flow
     void onProfileSelected(int profileIndex) {
         int idx = Math.max(1, Math.min(PROFILE_SLOTS, profileIndex)) - 1;
         if (activeProfile != idx) {
-            // Save playtime for previous profile
-            if (activeProfile >= 0 && playerProgress != null && sessionStartTime > 0) {
-                long sessionTime = (System.currentTimeMillis() - sessionStartTime) / 1000;
-                playerProgress.addPlaytime(sessionTime);
-                saveActiveProfile();
+            // End session for previous profile
+            if (playerProgress != null) {
+                playerProgress.endSession();
             }
+            saveActiveProfile(); // Save previous profile before switching
             activeProfile = idx;
+            // Ensure we have a valid progress object for the selected profile
+            if (profileSlots[activeProfile] == null) {
+                profileSlots[activeProfile] = new PlayerProgress();
+            }
             playerProgress = profileSlots[activeProfile];
-            // Start new session timer
-            sessionStartTime = System.currentTimeMillis();
+            // Start session for new profile
+            if (playerProgress != null) {
+                playerProgress.startSession();
+            }
         }
         showScreen(SCREEN_WORLD_SELECT);
     }
@@ -298,6 +295,11 @@ public class UnifiedGameUI extends JFrame {
             }
         }
 
+        // Start session when entering battle
+        if (playerProgress != null) {
+            playerProgress.startSession();
+        }
+        
         JPanel battlePanel = createBattle(worldId);
         battlePanel.setName(SCREEN_BATTLE);
         mainContainer.add(battlePanel, SCREEN_BATTLE);
@@ -685,7 +687,15 @@ public class UnifiedGameUI extends JFrame {
         tabs.addTab("Audio", audioPanel);
 
         JButton backBtn = UITheme.createButton("BACK");
-        backBtn.addActionListener(e -> returnToMainMenu());
+        backBtn.addActionListener(e -> {
+            if (settingsOpenedFromPause) {
+                // Return to pause menu instead of main menu
+                settingsOpenedFromPause = false;
+                showPauseMenu();
+            } else {
+                returnToMainMenu();
+            }
+        });
         JPanel bottom = new JPanel();
         bottom.setOpaque(false);
         bottom.add(backBtn);
@@ -1392,11 +1402,6 @@ public class UnifiedGameUI extends JFrame {
         panel.add(createBattleMainArea(), BorderLayout.CENTER);
         panel.add(createBattleBottomDetails(), BorderLayout.SOUTH);
 
-        // Reset battle log when starting new battle
-        if (battleLog != null) {
-            battleLog.setText("");
-        }
-        
         javax.swing.Timer startTimer = new javax.swing.Timer(500, e -> {
             startBattle();
             ((javax.swing.Timer) e.getSource()).stop();
@@ -1664,6 +1669,8 @@ public class UnifiedGameUI extends JFrame {
             playerProgress.unlockZyra();
             unlockedZyra = true;
         }
+        // Save progress after battle victory
+        saveActiveProfile();
         refreshWorldSelection();
 
         StringBuilder message = new StringBuilder("Victory! You have cleared World ")
@@ -1786,22 +1793,49 @@ public class UnifiedGameUI extends JFrame {
         // Top: Character panels (players left, enemies right)
         JPanel characterArea = new JPanel(new BorderLayout(20, 10));
         characterArea.setOpaque(false);
+        // Let character area auto-adjust to available space
+        characterArea.setMinimumSize(new Dimension(550, 200));
 
-        // Player characters on left - smaller to fit
+        // Player characters on left
         battlePlayerPanel = new JPanel();
         battlePlayerPanel.setLayout(new BoxLayout(battlePlayerPanel, BoxLayout.Y_AXIS));
         battlePlayerPanel.setOpaque(false);
-        battlePlayerPanel.setPreferredSize(new Dimension(220, 0)); // Reduced from 280
+        // Auto-adjust width based on content, minimum to fit character cards
+        battlePlayerPanel.setMinimumSize(new Dimension(260, 0));
+        battlePlayerPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
 
-        // Enemy characters on right - smaller to fit
+        // Enemy characters on right
         battleEnemyPanel = new JPanel();
         battleEnemyPanel.setLayout(new BoxLayout(battleEnemyPanel, BoxLayout.Y_AXIS));
         battleEnemyPanel.setOpaque(false);
-        battleEnemyPanel.setPreferredSize(new Dimension(220, 0)); // Reduced from 280
+        // Auto-adjust width based on content, minimum to fit character cards
+        battleEnemyPanel.setMinimumSize(new Dimension(260, 0));
+        battleEnemyPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
 
         buildBattleCharacterPanels();
-        characterArea.add(battlePlayerPanel, BorderLayout.WEST);
-        characterArea.add(battleEnemyPanel, BorderLayout.EAST);
+        
+        // Wrap panels in scroll panes to prevent overflow and ensure they fit in their containers
+        // Scroll panes will auto-adjust to available space
+        JScrollPane playerScroll = new JScrollPane(battlePlayerPanel);
+        playerScroll.setOpaque(false);
+        playerScroll.getViewport().setOpaque(false);
+        playerScroll.setBorder(null);
+        playerScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        playerScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        // Auto-adjust: minimum width to fit cards, height adjusts to available space
+        playerScroll.setMinimumSize(new Dimension(260, 150));
+        
+        JScrollPane enemyScroll = new JScrollPane(battleEnemyPanel);
+        enemyScroll.setOpaque(false);
+        enemyScroll.getViewport().setOpaque(false);
+        enemyScroll.setBorder(null);
+        enemyScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        enemyScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        // Auto-adjust: minimum width to fit cards, height adjusts to available space
+        enemyScroll.setMinimumSize(new Dimension(260, 150));
+        
+        characterArea.add(playerScroll, BorderLayout.WEST);
+        characterArea.add(enemyScroll, BorderLayout.EAST);
 
         // No skill buttons in center - they go in bottom right panel
         battlefieldPanel.add(characterArea, BorderLayout.CENTER);
@@ -1813,11 +1847,15 @@ public class UnifiedGameUI extends JFrame {
     }
 
     private JPanel createBattleBottomDetails() {
-        // Bottom panel: left = character stats, center = event log, right = enemy stats + skills
+        // Bottom panel: left = character stats, right = enemy stats + event log + skills
         JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setOpaque(false);
-        panel.setBorder(new EmptyBorder(8, 8, 8, 8));
-        panel.setPreferredSize(new Dimension(getWidth(), 180)); // Reduced from 220
+        panel.setBorder(new EmptyBorder(10, 10, 10, 10));
+        // Set size to ensure panels are visible without blocking heroes and enemy panels
+        // Reduced height to give more space to character area
+        panel.setPreferredSize(new Dimension(getWidth(), 200));
+        panel.setMinimumSize(new Dimension(800, 180));
+        panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 220));
 
         // Left: Selected character details panel
         battleCharacterDetailsPanel = new JPanel(new BorderLayout(10, 10)) {
@@ -1833,83 +1871,69 @@ public class UnifiedGameUI extends JFrame {
             }
         };
         battleCharacterDetailsPanel.setOpaque(false);
-        battleCharacterDetailsPanel.setBorder(new EmptyBorder(8, 8, 8, 8));
-        battleCharacterDetailsPanel.setPreferredSize(new Dimension(150, 0)); // Reduced from 200
+        battleCharacterDetailsPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+        battleCharacterDetailsPanel.setPreferredSize(new Dimension(200, 0));
         updateCharacterDetails();
 
-        // Center: Event log panel (battle description)
+        // Right: Container for battle log, skills, and enemy stats in a horizontal row
+        JPanel rightContainer = new JPanel(new BorderLayout(5, 5));
+        rightContainer.setOpaque(false);
+
+        // Center: Battle log panel
         battleEventLogPanel = new JPanel(new BorderLayout(5, 5)) {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2d = (Graphics2D) g.create();
                 g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                Color bgColor = new Color(12, 15, 18, 220);
+                Color bgColor = new Color(12, 15, 18, 240);
                 g2d.setColor(bgColor);
                 g2d.fillRect(0, 0, getWidth(), getHeight());
                 g2d.dispose();
             }
         };
-        battleEventLogPanel.setOpaque(false);
+        battleEventLogPanel.setOpaque(true);
         battleEventLogPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
+        battleEventLogPanel.setPreferredSize(new Dimension(400, 160));
+        battleEventLogPanel.setMinimumSize(new Dimension(350, 140));
         
-        // Battle log - initialize only once
-        if (battleLog == null) {
-            battleLog = new JTextArea();
-            battleLog.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 11));
-            battleLog.setEditable(false);
-            battleLog.setLineWrap(true);
-            battleLog.setWrapStyleWord(true);
-            battleLog.setBackground(new Color(8, 10, 12));
-            battleLog.setForeground(new Color(UITheme.LOG_TEXT.getRed(), UITheme.LOG_TEXT.getGreen(), UITheme.LOG_TEXT.getBlue(), 200));
-            battleLog.setOpaque(true);
-        }
+        // Battle log
+        battleLog = new JTextArea();
+        battleLog.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 11));
+        battleLog.setEditable(false);
+        battleLog.setLineWrap(true);
+        battleLog.setWrapStyleWord(true);
+        battleLog.setBackground(new Color(8, 10, 12));
+        battleLog.setForeground(new Color(UITheme.LOG_TEXT.getRed(), UITheme.LOG_TEXT.getGreen(), UITheme.LOG_TEXT.getBlue(), 200));
+        battleLog.setOpaque(true);
         JScrollPane logScroll = new JScrollPane(battleLog);
         logScroll.setOpaque(false);
         logScroll.getViewport().setOpaque(false);
         logScroll.setBorder(null);
         logScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         logScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        // Set size for battle log to avoid blocking other panels
+        logScroll.setPreferredSize(new Dimension(350, 150));
+        logScroll.setMinimumSize(new Dimension(300, 120));
         battleEventLogPanel.add(logScroll, BorderLayout.CENTER);
 
-        // Right: Container for enemy stats + skills
-        JPanel rightContainer = new JPanel(new BorderLayout(5, 5));
-        rightContainer.setOpaque(false);
-
-        // Top right: Enemy stats panel
-        battleEnemyDetailsPanel = new JPanel(new BorderLayout(5, 5)) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2d = (Graphics2D) g.create();
-                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                Color bgColor = new Color(12, 15, 18, 220);
-                g2d.setColor(bgColor);
-                g2d.fillRect(0, 0, getWidth(), getHeight());
-                g2d.dispose();
-            }
-        };
-        battleEnemyDetailsPanel.setOpaque(false);
-        battleEnemyDetailsPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
-        battleEnemyDetailsPanel.setPreferredSize(new Dimension(150, 0)); // Reduced from 180
-        updateEnemyDetails();
-
-        // Bottom right: Skills panel
+        // Skills panel (right of battle log)
         battleAttackDetailsPanel = new JPanel(new BorderLayout(5, 5)) {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2d = (Graphics2D) g.create();
                 g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                Color bgColor = new Color(12, 15, 18, 220);
+                Color bgColor = new Color(12, 15, 18, 240);
                 g2d.setColor(bgColor);
                 g2d.fillRect(0, 0, getWidth(), getHeight());
                 g2d.dispose();
             }
         };
-        battleAttackDetailsPanel.setOpaque(false);
+        battleAttackDetailsPanel.setOpaque(true);
         battleAttackDetailsPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
-        battleAttackDetailsPanel.setPreferredSize(new Dimension(180, 0)); // Reduced from 200
+        battleAttackDetailsPanel.setPreferredSize(new Dimension(200, 160));
+        battleAttackDetailsPanel.setMinimumSize(new Dimension(180, 140));
         
         // Initialize skill panel container
         JPanel initialSkillPanel = new JPanel();
@@ -1928,12 +1952,42 @@ public class UnifiedGameUI extends JFrame {
         // Update will populate skills
         updateAttackDetails();
 
-        // Add panels to right container
-        rightContainer.add(battleEnemyDetailsPanel, BorderLayout.WEST);
-        rightContainer.add(battleAttackDetailsPanel, BorderLayout.EAST);
+        // Enemy stats panel (right of skills)
+        battleEnemyDetailsPanel = new JPanel(new BorderLayout(5, 5)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                Color bgColor = new Color(12, 15, 18, 240);
+                g2d.setColor(bgColor);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+                g2d.dispose();
+            }
+        };
+        battleEnemyDetailsPanel.setOpaque(true);
+        battleEnemyDetailsPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
+        battleEnemyDetailsPanel.setPreferredSize(new Dimension(180, 160));
+        battleEnemyDetailsPanel.setMinimumSize(new Dimension(160, 140));
+        updateEnemyDetails();
+
+        // Create a container for skills and enemy stats on the right side
+        JPanel rightSidePanel = new JPanel(new BorderLayout(5, 5));
+        rightSidePanel.setOpaque(false);
+        rightSidePanel.setPreferredSize(new Dimension(390, 160));
+        rightSidePanel.setMinimumSize(new Dimension(350, 140));
+        rightSidePanel.add(battleAttackDetailsPanel, BorderLayout.WEST);  // Skills on left
+        rightSidePanel.add(battleEnemyDetailsPanel, BorderLayout.EAST);  // Enemy stats on right
+        
+        // Add panels to right container: Battle Log (center, takes most space) | Skills + Enemy Stats (east)
+        rightContainer.add(battleEventLogPanel, BorderLayout.CENTER);
+        rightContainer.add(rightSidePanel, BorderLayout.EAST);
+        
+        // Ensure right container has proper size constraints
+        rightContainer.setPreferredSize(new Dimension(800, 160));
+        rightContainer.setMinimumSize(new Dimension(750, 140));
 
         panel.add(battleCharacterDetailsPanel, BorderLayout.WEST);
-        panel.add(battleEventLogPanel, BorderLayout.CENTER);
         panel.add(rightContainer, BorderLayout.EAST);
 
         return panel;
@@ -1955,7 +2009,9 @@ public class UnifiedGameUI extends JFrame {
 
         for (Character e : enemyTeam) {
             if (e != null && e.isAlive()) {
-                JLabel enemyLabel = new JLabel(e.name);
+                // Use HTML to enable text wrapping for long enemy names
+                String displayName = e.name.length() > 15 ? e.name.substring(0, 12) + "..." : e.name;
+                JLabel enemyLabel = new JLabel("<html><div style='width:160px;'>" + displayName + "</div></html>");
                 enemyLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 11));
                 enemyLabel.setForeground(UITheme.PRIMARY_WHITE);
                 details.add(enemyLabel);
@@ -1974,7 +2030,15 @@ public class UnifiedGameUI extends JFrame {
             }
         }
 
-        battleEnemyDetailsPanel.add(details, BorderLayout.CENTER);
+        // Wrap details in a scroll pane to prevent overflow
+        JScrollPane enemyScroll = new JScrollPane(details);
+        enemyScroll.setOpaque(false);
+        enemyScroll.getViewport().setOpaque(false);
+        enemyScroll.setBorder(null);
+        enemyScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        enemyScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        
+        battleEnemyDetailsPanel.add(enemyScroll, BorderLayout.CENTER);
         battleEnemyDetailsPanel.revalidate();
         battleEnemyDetailsPanel.repaint();
     }
@@ -2167,7 +2231,18 @@ public class UnifiedGameUI extends JFrame {
         battlePlayerPanel.setOpaque(false);
         battlePlayerPanel.setBorder(UITheme.createTitledBorder("YOUR TEAM", new Color(UITheme.PRIMARY_GREEN.getRed(), UITheme.PRIMARY_GREEN.getGreen(), UITheme.PRIMARY_GREEN.getBlue(), 180), new Color(UITheme.BORDER_NORMAL.getRed(), UITheme.BORDER_NORMAL.getGreen(), UITheme.BORDER_NORMAL.getBlue(), 100)));
 
-        // Battle log is initialized in createBattleBottomDetails, don't recreate here
+        // Darker battle log
+        battleLog = new JTextArea();
+        battleLog.setFont(UITheme.FONT_LOG);
+        battleLog.setEditable(false);
+        battleLog.setLineWrap(true);
+        battleLog.setWrapStyleWord(true);
+        // Dark background
+        battleLog.setBackground(new Color(8, 10, 12));
+        battleLog.setForeground(new Color(UITheme.LOG_TEXT.getRed(), UITheme.LOG_TEXT.getGreen(), UITheme.LOG_TEXT.getBlue(), 200));
+        battleLog.setOpaque(true);
+        JScrollPane logScroll = new JScrollPane(battleLog);
+        logScroll.setPreferredSize(new Dimension(400, 400));
 
         // Darker enemy panel
         battleEnemyPanel = new JPanel() {
@@ -2201,11 +2276,8 @@ public class UnifiedGameUI extends JFrame {
 
         buildBattleCharacterPanels();
 
-        // Battle log is handled in createBattleBottomDetails
-        JPanel centerPlaceholder = new JPanel();
-        centerPlaceholder.setOpaque(false);
         panel.add(battlePlayerPanel, BorderLayout.WEST);
-        panel.add(centerPlaceholder, BorderLayout.CENTER);
+        panel.add(logScroll, BorderLayout.CENTER);
         panel.add(battleEnemyPanel, BorderLayout.EAST);
 
         return panel;
@@ -2551,8 +2623,8 @@ public class UnifiedGameUI extends JFrame {
             }
         };
         card.setOpaque(false);
-        // Smaller card size to fit better
-        Dimension cardSize = new Dimension(Math.max(200, UITheme.CHARACTER_CARD.width), Math.max(100, UITheme.CHARACTER_CARD.height));
+        // Ensure card has proper size to show all bars
+        Dimension cardSize = new Dimension(Math.max(250, UITheme.CHARACTER_CARD.width), Math.max(120, UITheme.CHARACTER_CARD.height));
         card.setPreferredSize(cardSize);
         card.setMinimumSize(cardSize);
         card.setMaximumSize(new Dimension(cardSize.width, Integer.MAX_VALUE)); // Allow vertical expansion
@@ -2690,17 +2762,17 @@ public class UnifiedGameUI extends JFrame {
             };
             skillPanel.setOpaque(false);
             skillPanel.setCursor(canUse ? Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) : Cursor.getDefaultCursor());
-            skillPanel.setPreferredSize(new Dimension(0, 38)); // Reduced from 45
-            skillPanel.setBorder(new EmptyBorder(3, 5, 3, 5)); // Reduced padding
+            skillPanel.setPreferredSize(new Dimension(0, 45));
+            skillPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
             
             // Skill name
             JLabel nameLabel = new JLabel(skill.getName());
-            nameLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12)); // Reduced from 13
+            nameLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 13));
             nameLabel.setForeground(canUse ? UITheme.PRIMARY_WHITE : new Color(UITheme.TEXT_GRAY.getRed(), UITheme.TEXT_GRAY.getGreen(), UITheme.TEXT_GRAY.getBlue(), 150));
             
             // Skill description
             JLabel descLabel = new JLabel(skill.getDescription());
-            descLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 10)); // Reduced from 11
+            descLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 11));
             descLabel.setForeground(canUse ? new Color(UITheme.PRIMARY_WHITE.getRed(), UITheme.PRIMARY_WHITE.getGreen(), UITheme.PRIMARY_WHITE.getBlue(), 180) : new Color(UITheme.TEXT_GRAY.getRed(), UITheme.TEXT_GRAY.getGreen(), UITheme.TEXT_GRAY.getBlue(), 120));
             
             JPanel textPanel = new JPanel();
@@ -2740,7 +2812,7 @@ public class UnifiedGameUI extends JFrame {
             skillPanel.putClientProperty("isHovered", false);
             
             battleSkillPanel.add(skillPanel);
-            battleSkillPanel.add(Box.createVerticalStrut(2)); // Reduced spacing
+            battleSkillPanel.add(Box.createVerticalStrut(3));
         }
 
         battleSkillPanel.revalidate();
@@ -2941,9 +3013,10 @@ public class UnifiedGameUI extends JFrame {
         waitingForTarget = false;
         announceCurrentWave();
         setBattleSkillButtonsEnabled(false);
-        
-        // Auto-save after wave completion
-        autoSaveProfile();
+
+        // Auto-save after wave completion (time is recorded in saveActiveProfile)
+        saveActiveProfile();
+        appendBattleLog("\n💾 Progress auto-saved!");
 
         javax.swing.Timer resume = new javax.swing.Timer(900, e -> {
             currentPlayerIndex = 0;
@@ -3024,41 +3097,21 @@ public class UnifiedGameUI extends JFrame {
         gbc.gridy = 0;
         buttonPanel.add(resumeBtn, gbc);
 
-        PauseMenuButton saveBtn = new PauseMenuButton("SAVE", dialog, () -> {
-            // Save game progress
-            if (activeProfile >= 0 && playerProgress != null) {
-                // Update playtime before saving
-                if (sessionStartTime > 0) {
-                    long sessionTime = (System.currentTimeMillis() - sessionStartTime) / 1000;
-                    playerProgress.addPlaytime(sessionTime);
-                    sessionStartTime = System.currentTimeMillis(); // Reset timer
-                }
-                // Sync and save
-                profileSlots[activeProfile] = playerProgress;
-                saveProfile(activeProfile);
-                
-                // Show save confirmation with better styling
-                JPanel savePanel = new JPanel(new BorderLayout());
-                savePanel.setBorder(new EmptyBorder(20, 30, 20, 30));
-                JLabel saveLabel = new JLabel("Game Saved!", SwingConstants.CENTER);
-                saveLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 20));
-                saveLabel.setForeground(UITheme.PRIMARY_GREEN);
-                savePanel.add(saveLabel, BorderLayout.CENTER);
-                
-                JOptionPane.showMessageDialog(dialog, savePanel, "Save", JOptionPane.INFORMATION_MESSAGE);
-            } else {
-                JOptionPane.showMessageDialog(dialog, "No active profile to save!", "Error", JOptionPane.WARNING_MESSAGE);
-            }
-        });
-        gbc.gridy = 1;
-        buttonPanel.add(saveBtn, gbc);
-
         PauseMenuButton optionsBtn = new PauseMenuButton("OPTIONS", dialog, () -> {
             dialog.dispose();
+            settingsOpenedFromPause = true; // Mark that we're opening settings from pause
             showScreen(SCREEN_SETTINGS);
         });
-        gbc.gridy = 2;
+        gbc.gridy = 1;
         buttonPanel.add(optionsBtn, gbc);
+
+        PauseMenuButton saveBtn = new PauseMenuButton("SAVE", dialog, () -> {
+            saveActiveProfile();
+            appendBattleLog("\n💾 Game saved!");
+            JOptionPane.showMessageDialog(dialog, "Game saved successfully!", "Save", JOptionPane.INFORMATION_MESSAGE);
+        });
+        gbc.gridy = 2;
+        buttonPanel.add(saveBtn, gbc);
 
         PauseMenuButton exitMenuBtn = new PauseMenuButton("EXIT TO MENU", dialog, () -> {
             dialog.dispose();
@@ -3149,6 +3202,8 @@ public class UnifiedGameUI extends JFrame {
     }
 
     private void refreshProfileSelect() {
+        // Reload profile data from disk to ensure we show the latest saved data
+        reloadProfilesFromDisk();
         for (Component comp : mainContainer.getComponents()) {
             if (comp.getName() != null && comp.getName().equals(SCREEN_PROFILE_SELECT)) {
                 mainContainer.remove(comp);
@@ -3156,6 +3211,38 @@ public class UnifiedGameUI extends JFrame {
             }
         }
         mainContainer.add(createProfileSelect(), SCREEN_PROFILE_SELECT);
+    }
+
+    private void reloadProfilesFromDisk() {
+        // Save current active profile before reloading to ensure we don't lose unsaved changes
+        if (activeProfile >= 0 && playerProgress != null) {
+            profileSlots[activeProfile] = playerProgress;
+            saveProfile(activeProfile);
+        }
+        
+        for (int i = 0; i < PROFILE_SLOTS; i++) {
+            Path file = SAVE_DIR.resolve("profile" + (i + 1) + ".dat");
+            PlayerProgress data = PlayerProgress.load(file);
+            if (data != null) {
+                profileSlots[i] = data;
+                System.out.println("Loaded profile " + (i + 1) + " from disk: Level " + data.getPlayerLevel() + 
+                    ", EXP " + data.getCurrentExp() + "/" + data.getExpToNext() + 
+                    ", Worlds: " + data.getClearedWorldCount());
+            } else {
+                // If no file exists, keep the current in-memory data (don't overwrite with new empty progress)
+                if (profileSlots[i] == null) {
+                    profileSlots[i] = new PlayerProgress();
+                }
+            }
+        }
+        // Update playerProgress if we have an active profile
+        if (activeProfile >= 0 && activeProfile < PROFILE_SLOTS) {
+            playerProgress = profileSlots[activeProfile];
+            // Start session if we have an active profile
+            if (playerProgress != null && playerProgress.getTotalPlayTimeMs() == 0) {
+                playerProgress.startSession();
+            }
+        }
     }
     void resetProfileSlot(int profileIndex, boolean deleteFile) {
         int idx = Math.max(1, Math.min(PROFILE_SLOTS, profileIndex)) - 1;
@@ -3184,31 +3271,12 @@ public class UnifiedGameUI extends JFrame {
     }
 
     private void returnToMainMenu() {
-        // Update playtime before saving
-        if (activeProfile >= 0 && playerProgress != null && sessionStartTime > 0) {
-            long sessionTime = (System.currentTimeMillis() - sessionStartTime) / 1000;
-            playerProgress.addPlaytime(sessionTime);
+        // End session and auto-save when returning to main menu
+        if (playerProgress != null) {
+            playerProgress.endSession();
         }
-        // Auto-save when returning to main menu
-        autoSaveProfile();
-        // Reload profiles from disk to refresh the UI, preserving active profile
-        int savedActiveProfile = activeProfile;
-        for (int i = 0; i < PROFILE_SLOTS; i++) {
-            Path file = SAVE_DIR.resolve("profile" + (i + 1) + ".dat");
-            PlayerProgress data = PlayerProgress.load(file);
-            if (data != null) {
-                profileSlots[i] = data;
-            }
-        }
-        // Restore active profile and sync playerProgress
-        activeProfile = savedActiveProfile;
-        if (activeProfile >= 0 && activeProfile < PROFILE_SLOTS) {
-            playerProgress = profileSlots[activeProfile];
-            // Restart session timer
-            sessionStartTime = System.currentTimeMillis();
-        }
-        // Refresh profile select screen if it exists
-        refreshProfileSelect();
+        saveActiveProfile();
+        refreshProfileSelect(); // Refresh to show updated data
         showScreen(SCREEN_MAIN_MENU);
     }
 
@@ -3227,36 +3295,35 @@ public class UnifiedGameUI extends JFrame {
 
     private void saveActiveProfile() {
         if (activeProfile < 0 || playerProgress == null) return;
-        // Sync playerProgress back to profileSlots array before saving
+        // Record save time
+        playerProgress.recordSave();
+        // Always sync playerProgress changes back to profileSlots before saving
         profileSlots[activeProfile] = playerProgress;
         saveProfile(activeProfile);
+        System.out.println("Saved profile " + (activeProfile + 1) + ": Level " + playerProgress.getPlayerLevel() + 
+            ", EXP " + playerProgress.getCurrentExp() + "/" + playerProgress.getExpToNext() + 
+            ", Worlds: " + playerProgress.getClearedWorldCount() + 
+            ", Time: " + playerProgress.getFormattedPlayTime() +
+            ", Last Save: " + playerProgress.getFormattedLastSaveDate());
     }
 
     private void saveProfile(int slotIndex) {
+        if (slotIndex < 0 || slotIndex >= PROFILE_SLOTS) return;
+        // Ensure we're saving the current playerProgress if this is the active profile
+        if (slotIndex == activeProfile && playerProgress != null) {
+            profileSlots[slotIndex] = playerProgress;
+        }
         Path file = SAVE_DIR.resolve("profile" + (slotIndex + 1) + ".dat");
         try {
-            profileSlots[slotIndex].save(file);
+            if (profileSlots[slotIndex] != null) {
+                profileSlots[slotIndex].save(file);
+                System.out.println("Successfully wrote profile " + (slotIndex + 1) + " to " + file);
+            } else {
+                System.err.println("ERROR: profileSlots[" + slotIndex + "] is null!");
+            }
         } catch (IOException e) {
+            System.err.println("ERROR saving profile " + (slotIndex + 1) + ": " + e.getMessage());
             e.printStackTrace();
-        }
-    }
-    
-    private void autoSaveProfile() {
-        if (activeProfile >= 0 && activeProfile < PROFILE_SLOTS) {
-            // Update playtime before saving
-            if (playerProgress != null && sessionStartTime > 0) {
-                long sessionTime = (System.currentTimeMillis() - sessionStartTime) / 1000;
-                playerProgress.addPlaytime(sessionTime);
-                sessionStartTime = System.currentTimeMillis(); // Reset timer
-            }
-            // Sync playerProgress back to profileSlots array before saving
-            if (playerProgress != null) {
-                profileSlots[activeProfile] = playerProgress;
-            }
-            saveProfile(activeProfile);
-            if (battleLog != null) {
-                appendBattleLog("💾 Auto-saved progress");
-            }
         }
     }
 
@@ -3428,3 +3495,4 @@ public class UnifiedGameUI extends JFrame {
         SwingUtilities.invokeLater(UnifiedGameUI::new);
     }
 }
+
