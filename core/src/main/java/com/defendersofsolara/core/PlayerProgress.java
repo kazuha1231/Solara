@@ -20,6 +20,8 @@ public class PlayerProgress implements Serializable {
     private int expToNext = 150;
     private final Set<Integer> clearedWorlds = new HashSet<>();
     private boolean zyraUnlocked = false;
+    private String profileName = "";
+    private long totalPlaytimeSeconds = 0; // Total playtime in seconds
 
     // Level requirements per world (index 0 -> world 1)
     private static final int[] WORLD_LEVEL_REQ = {1, 3, 6, 9, 12};
@@ -105,6 +107,49 @@ public class PlayerProgress implements Serializable {
 
     public String getProfileSummary() {
         return String.format("Lvl %d  |  EXP %d/%d", playerLevel, currentExp, expToNext);
+    }
+    
+    public String getProfileName() {
+        if (profileName == null || profileName.trim().isEmpty()) {
+            // Generate default name based on progress
+            if (clearedWorlds.isEmpty()) {
+                return "NEW ADVENTURE";
+            } else if (clearedWorlds.size() == 1) {
+                return "FIRST STEPS";
+            } else if (clearedWorlds.size() == 2) {
+                return "RISING HERO";
+            } else if (clearedWorlds.size() == 3) {
+                return "HALFWAY HOME";
+            } else if (clearedWorlds.size() == 4) {
+                return "NEAR VICTORY";
+            } else {
+                return "LEGENDARY";
+            }
+        }
+        return profileName;
+    }
+    
+    public void setProfileName(String name) {
+        this.profileName = name != null ? name.trim() : "";
+    }
+    
+    public long getTotalPlaytimeSeconds() {
+        return totalPlaytimeSeconds;
+    }
+    
+    public void addPlaytime(long seconds) {
+        totalPlaytimeSeconds += Math.max(0, seconds);
+    }
+    
+    public String getFormattedPlaytime() {
+        long totalSeconds = totalPlaytimeSeconds;
+        long hours = totalSeconds / 3600;
+        long minutes = (totalSeconds % 3600) / 60;
+        if (hours > 0) {
+            return String.format("%dH %dM", hours, minutes);
+        } else {
+            return String.format("%dM", minutes);
+        }
     }
 }
 
