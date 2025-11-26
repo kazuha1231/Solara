@@ -38,7 +38,7 @@ class ProfileUI extends JPanel {
         int activeSlot = parent.getActiveProfileIndex();
         PlayerProgress progress = activeSlot >= 0 ? parent.getProfileProgress(activeSlot + 1) : null;
         String summary = (progress != null)
-            ? String.format("ACTIVE PROFILE %d  •  %s", activeSlot + 1, progress.getProfileSummary())
+            ? String.format("ACTIVE PROFILE %d • %s", activeSlot + 1, progress.getProfileSummary())
             : "Select a profile to begin";
         JLabel levelInfo = createTitleWithDivider(summary, UITheme.FONT_TEXT, Color.WHITE);
         levelInfo.setFont(UITheme.FONT_TEXT);
@@ -134,7 +134,7 @@ class ProfileUI extends JPanel {
         if (isNew) {
             body.setText("NEW GAME");
         } else {
-            body.setText(String.format("<html><center>Level %d<br/>EXP %d / %d<br/>Worlds Cleared %d / 5<br/><br/>Time: %s<br/>Last Save: %s</center></html>",
+            body.setText(String.format("<html><center>Level %d<br/>EXP %d / %d<br/>Worlds Cleared: %d / 5<br/><br/>Time: %s<br/>Last Save: %s</center></html>",
                 progress.getPlayerLevel(),
                 progress.getCurrentExp(),
                 progress.getExpToNext(),

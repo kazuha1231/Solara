@@ -912,7 +912,7 @@ public class UnifiedGameUI extends JFrame {
         title.setHorizontalAlignment(SwingConstants.CENTER);
 
         JLabel levelInfo = createReadableLabel(
-            String.format("Level %d   |   EXP %d / %d",
+            String.format("Level %d | EXP %d / %d",
                 playerProgress.getPlayerLevel(),
                 playerProgress.getCurrentExp(),
                 playerProgress.getExpToNext()
@@ -1327,7 +1327,7 @@ public class UnifiedGameUI extends JFrame {
         switch (worldId) {
             case 1: // Chronovale - Time Core
                 return "WORLD 1: CHRONOVALE\n" +
-                       "Core of Time\n\n" +
+                       " Core of Time\n\n" +
                        "The first world of the Veil System, Chronovale was once a realm where time flowed " +
                        "in perfect harmony. Ancient civilizations built monuments that stood for millennia, " +
                        "their history preserved in crystalline structures that recorded every moment.\n\n" +
@@ -1727,7 +1727,7 @@ public class UnifiedGameUI extends JFrame {
             .append(" EXP");
 
         if (playerProgress.getPlayerLevel() > previousLevel) {
-            message.append("\nLevel Up! Now Level ").append(playerProgress.getPlayerLevel());
+            message.append("\nLevel Up! Now Level ").append(playerProgress.getPlayerLevel()).append("!");
         }
 
         message.append(String.format("\nEXP Progress: %d / %d",
@@ -2388,7 +2388,7 @@ public class UnifiedGameUI extends JFrame {
     private void updateWaveLabel() {
         if (battleWaveLabel == null || currentWavePlan == null || currentWavePlan.isEmpty()) return;
         WaveEncounter wave = currentWavePlan.get(Math.min(activeWaveIndex, currentWavePlan.size() - 1));
-        String text = String.format("Wave %d/%d%s",
+        String text = String.format("Wave %d / %d%s",
             wave.waveNumber,
             currentWavePlan.size(),
             wave.bossWave ? " (Boss)" : ""
@@ -3529,7 +3529,7 @@ public class UnifiedGameUI extends JFrame {
             int delta = prev - target.currentHP;
             if (delta > 0) {
                 appendBattleLog(String.format(
-                    "%s uses %s → %s takes %d damage (HP %d/%d)",
+                    "%s uses %s → %s takes %d damage (HP: %d/%d)",
                     attacker,
                     skillName,
                     target.name,

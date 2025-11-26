@@ -111,7 +111,7 @@ public class PlayerProgress implements Serializable {
     }
 
     public String getProfileSummary() {
-        return String.format("Lvl %d  |  EXP %d/%d", playerLevel, currentExp, expToNext);
+        return String.format("Lvl %d | EXP %d / %d", playerLevel, currentExp, expToNext);
     }
     
     // Time tracking methods
