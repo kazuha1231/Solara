@@ -26,7 +26,8 @@ class ProfileUI extends JPanel {
         gbc.insets = new Insets(10, 10, 10, 10);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        JLabel title = new JLabel("SELECT PROFILE", SwingConstants.CENTER);
+        // Create beautiful title with divider fade underline
+        JLabel title = createTitleWithDivider("SELECT PROFILE", UITheme.FONT_SUBTITLE, UITheme.PRIMARY_GREEN);
         title.setFont(UITheme.FONT_SUBTITLE);
         title.setForeground(UITheme.PRIMARY_GREEN);
         gbc.gridy = 0;
@@ -39,7 +40,7 @@ class ProfileUI extends JPanel {
         String summary = (progress != null)
             ? String.format("ACTIVE PROFILE %d  •  %s", activeSlot + 1, progress.getProfileSummary())
             : "Select a profile to begin";
-        JLabel levelInfo = new JLabel(summary, SwingConstants.CENTER);
+        JLabel levelInfo = createTitleWithDivider(summary, UITheme.FONT_TEXT, Color.WHITE);
         levelInfo.setFont(UITheme.FONT_TEXT);
         levelInfo.setForeground(Color.WHITE);
         gbc.gridy = 1;
@@ -80,7 +81,7 @@ class ProfileUI extends JPanel {
                 // Use nearest neighbor for pixel-art look
                 g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
                 
-                // Dark background
+                // Semi-transparent background with very low opacity (matching world selection)
                 Color bg;
                 if (hover[0]) {
                     bg = new Color(UITheme.BG_CARD.getRed() + 15, UITheme.BG_CARD.getGreen() + 15, UITheme.BG_CARD.getBlue() + 15);
@@ -89,35 +90,26 @@ class ProfileUI extends JPanel {
                 } else {
                     bg = new Color(UITheme.BG_CARD.getRed() - 5, UITheme.BG_CARD.getGreen() - 5, UITheme.BG_CARD.getBlue() - 5);
                 }
-                g2.setColor(bg);
+                Color bgColor = new Color(bg.getRed(), bg.getGreen(), bg.getBlue(), 60); // Very low opacity (60/255)
+                g2.setColor(bgColor);
                 g2.fillRect(0, 0, getWidth(), getHeight());
                 
-                // Use Panel asset (includes background and border) - matching reference style
-                java.awt.image.BufferedImage panelImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Panel/panel-000.png");
-                if (panelImg != null) {
-                    float alpha = hover[0] ? 1.0f : (isActive ? 0.9f : 0.6f);
+                // Use only panel border (not full panel)
+                java.awt.image.BufferedImage borderImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Border/panel-border-000.png");
+                if (borderImg != null) {
+                    float alpha = hover[0] ? 0.3f : (isActive ? 0.25f : 0.2f);
                     g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
-                    PixelArtUI.drawNineSlice(g2, panelImg, 0, 0, getWidth(), getHeight());
+                    PixelArtUI.drawNineSlice(g2, borderImg, 0, 0, getWidth(), getHeight());
                 } else {
-                    // Fallback: dark background with border
-                    g2.setColor(bg);
-                    g2.fillRect(0, 0, getWidth(), getHeight());
-                    
-                    java.awt.image.BufferedImage borderImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Border/panel-border-000.png");
-                    if (borderImg != null) {
-                        float alpha = hover[0] ? 1.0f : (isActive ? 0.9f : 0.6f);
-                        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
-                        PixelArtUI.drawNineSlice(g2, borderImg, 0, 0, getWidth(), getHeight());
-                    } else {
-                        Color borderColor = hover[0] 
-                            ? UITheme.BORDER_HIGHLIGHT 
-                            : isActive 
-                                ? UITheme.BORDER_NORMAL
-                                : new Color(UITheme.BORDER_NORMAL.getRed(), UITheme.BORDER_NORMAL.getGreen(), UITheme.BORDER_NORMAL.getBlue(), 120);
-                        g2.setColor(borderColor);
-                        g2.setStroke(new BasicStroke(2f));
-                        g2.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
-                    }
+                    // Fallback: simple border
+                    Color borderColor = hover[0] 
+                        ? new Color(UITheme.BORDER_HIGHLIGHT.getRed(), UITheme.BORDER_HIGHLIGHT.getGreen(), UITheme.BORDER_HIGHLIGHT.getBlue(), 100)
+                        : isActive 
+                            ? new Color(UITheme.BORDER_NORMAL.getRed(), UITheme.BORDER_NORMAL.getGreen(), UITheme.BORDER_NORMAL.getBlue(), 80)
+                            : new Color(UITheme.BORDER_NORMAL.getRed(), UITheme.BORDER_NORMAL.getGreen(), UITheme.BORDER_NORMAL.getBlue(), 60);
+                    g2.setColor(borderColor);
+                    g2.setStroke(new BasicStroke(2f));
+                    g2.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
                 }
                 g2.dispose();
             }
@@ -234,26 +226,68 @@ class ProfileUI extends JPanel {
         }
     }
 
+    /**
+     * Creates a beautiful label with divider fade underline.
+     */
+    private JLabel createTitleWithDivider(String text, Font font, Color color) {
+        return new JLabel(text, SwingConstants.CENTER) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+                g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                g2d.setFont(getFont());
+                
+                FontMetrics fm = g2d.getFontMetrics();
+                int textWidth = fm.stringWidth(getText());
+                int x = (getWidth() - textWidth) / 2;
+                int y = (getHeight() + fm.getAscent() - fm.getDescent()) / 2;
+                
+                // Draw text shadow for depth
+                g2d.setColor(new Color(0, 0, 0, 200));
+                g2d.drawString(getText(), x + 2, y + 2);
+                g2d.setColor(new Color(0, 0, 0, 120));
+                g2d.drawString(getText(), x + 1, y + 1);
+                
+                // Draw main text with slight glow
+                g2d.setColor(new Color(getForeground().getRed(), getForeground().getGreen(), getForeground().getBlue(), 200));
+                g2d.drawString(getText(), x, y - 1);
+                g2d.setColor(getForeground());
+                g2d.drawString(getText(), x, y);
+                
+                // Draw beautiful divider fade underline
+                String dividerPath = "/kennyresources/PNG/Default/Divider Fade/divider-fade-001.png";
+                if (font.getSize() >= 24) {
+                    dividerPath = "/kennyresources/PNG/Default/Divider Fade/divider-fade-002.png";
+                }
+                java.awt.image.BufferedImage dividerFade = PixelArtUI.loadImage(dividerPath);
+                if (dividerFade == null) {
+                    dividerFade = PixelArtUI.loadImage("/kennyresources/PNG/Default/Divider Fade/divider-fade-000.png");
+                }
+                
+                if (dividerFade != null) {
+                    int underlineY = y + fm.getDescent() + 8;
+                    int underlineWidth = Math.max(textWidth + 40, 120);
+                    int underlineX = (getWidth() - underlineWidth) / 2;
+                    int underlineHeight = Math.max(dividerFade.getHeight(), 4);
+                    
+                    g2d.setComposite(java.awt.AlphaComposite.getInstance(java.awt.AlphaComposite.SRC_OVER, 0.9f));
+                    PixelArtUI.drawNineSlice(g2d, dividerFade, underlineX, underlineY, underlineWidth, underlineHeight);
+                    g2d.setComposite(java.awt.AlphaComposite.SrcOver);
+                }
+                
+                g2d.dispose();
+            }
+        };
+    }
+
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2d = (Graphics2D) g;
         parent.paintBackground(g2d, getWidth(), getHeight());
-
-        // Very dark vignette overlay
-        g2d.setColor(new Color(0, 0, 0, 200));
-        g2d.fillRect(0, 0, getWidth(), getHeight());
-
-        // Subtle orange glow behind the profile slots (from palette)
-        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
-        g2d.setPaint(new RadialGradientPaint(
-            new Point(getWidth() / 2, getHeight() / 2),
-            Math.max(getWidth(), getHeight()) / 3f,
-            new float[]{0f, 1f},
-            new Color[]{new Color(220, 120, 60, 120), new Color(0, 0, 0, 0)}
-        ));
-        g2d.fillRect(0, 0, getWidth(), getHeight());
-        g2d.setComposite(AlphaComposite.SrcOver);
+        // No dark overlay - keep it bright like world selection
     }
 }
 

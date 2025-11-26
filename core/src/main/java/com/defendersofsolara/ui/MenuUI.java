@@ -117,9 +117,14 @@ class MenuUI extends JPanel {
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
-        // Background: very dark blue-gray/charcoal matching reference
-        g2d.setColor(UITheme.BG_DARK_TEAL);
-        g2d.fillRect(0, 0, getWidth(), getHeight());
+        // Use menu.png background from parent
+        if (parent != null) {
+            parent.paintBackground(g2d, getWidth(), getHeight());
+        } else {
+            // Fallback: very dark blue-gray/charcoal matching reference
+            g2d.setColor(UITheme.BG_DARK_TEAL);
+            g2d.fillRect(0, 0, getWidth(), getHeight());
+        }
 
         // Title + subtitle
         drawTitle(g2d);
@@ -136,7 +141,11 @@ class MenuUI extends JPanel {
         int centerX = getWidth() / 2;
         int top = 150;
 
-        // Main title - simple white text (matching reference style, sans-serif)
+        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+
+        // Main title - beautiful white text with divider fade underline
         Font titleFont = new Font(Font.SANS_SERIF, Font.BOLD, 64);
         g2d.setFont(titleFont);
         String title = "DEFENDERS OF SOLARA";
@@ -144,18 +153,67 @@ class MenuUI extends JPanel {
         int titleWidth = fm.stringWidth(title);
         int left = centerX - titleWidth / 2;
 
-        // Simple white text (matching reference)
+        // Draw text shadow for depth
+        g2d.setColor(new Color(0, 0, 0, 220));
+        g2d.drawString(title, left + 3, top + 3);
+        g2d.setColor(new Color(0, 0, 0, 150));
+        g2d.drawString(title, left + 2, top + 2);
+        
+        // Draw main text with slight glow
+        g2d.setColor(new Color(UITheme.PRIMARY_WHITE.getRed(), UITheme.PRIMARY_WHITE.getGreen(), UITheme.PRIMARY_WHITE.getBlue(), 220));
+        g2d.drawString(title, left, top - 1);
         g2d.setColor(UITheme.PRIMARY_WHITE);
         g2d.drawString(title, left, top);
 
-        // Subtitle - simple white text (sans-serif)
+        // Draw beautiful divider fade underline for main title
+        java.awt.image.BufferedImage dividerFade = PixelArtUI.loadImage("/kennyresources/PNG/Default/Divider Fade/divider-fade-002.png");
+        if (dividerFade == null) {
+            dividerFade = PixelArtUI.loadImage("/kennyresources/PNG/Default/Divider Fade/divider-fade-000.png");
+        }
+        if (dividerFade != null) {
+            int underlineY = top + fm.getDescent() + 12;
+            int underlineWidth = Math.max(titleWidth + 60, 200);
+            int underlineX = centerX - underlineWidth / 2;
+            int underlineHeight = Math.max(dividerFade.getHeight(), 8);
+            g2d.setComposite(java.awt.AlphaComposite.getInstance(java.awt.AlphaComposite.SRC_OVER, 0.95f));
+            PixelArtUI.drawNineSlice(g2d, dividerFade, underlineX, underlineY, underlineWidth, underlineHeight);
+            g2d.setComposite(java.awt.AlphaComposite.SrcOver);
+        }
+
+        // Subtitle - beautiful white text with divider fade underline
         Font subtitleFont = new Font(Font.SANS_SERIF, Font.PLAIN, 24);
         g2d.setFont(subtitleFont);
-        g2d.setColor(UITheme.PRIMARY_WHITE);
         String subtitle = "VEIL SYSTEM CONFLICT";
         FontMetrics sfm = g2d.getFontMetrics();
         int subLeft = centerX - sfm.stringWidth(subtitle) / 2;
-        g2d.drawString(subtitle, subLeft, top + 45);
+        int subTop = top + 55;
+
+        // Draw subtitle shadow
+        g2d.setColor(new Color(0, 0, 0, 180));
+        g2d.drawString(subtitle, subLeft + 2, subTop + 2);
+        g2d.setColor(new Color(0, 0, 0, 100));
+        g2d.drawString(subtitle, subLeft + 1, subTop + 1);
+        
+        // Draw subtitle text
+        g2d.setColor(new Color(UITheme.PRIMARY_WHITE.getRed(), UITheme.PRIMARY_WHITE.getGreen(), UITheme.PRIMARY_WHITE.getBlue(), 200));
+        g2d.drawString(subtitle, subLeft, subTop - 1);
+        g2d.setColor(UITheme.PRIMARY_WHITE);
+        g2d.drawString(subtitle, subLeft, subTop);
+
+        // Draw divider fade underline for subtitle
+        java.awt.image.BufferedImage dividerFadeSmall = PixelArtUI.loadImage("/kennyresources/PNG/Default/Divider Fade/divider-fade-001.png");
+        if (dividerFadeSmall == null) {
+            dividerFadeSmall = PixelArtUI.loadImage("/kennyresources/PNG/Default/Divider Fade/divider-fade-000.png");
+        }
+        if (dividerFadeSmall != null) {
+            int subUnderlineY = subTop + sfm.getDescent() + 8;
+            int subUnderlineWidth = Math.max(sfm.stringWidth(subtitle) + 30, 100);
+            int subUnderlineX = centerX - subUnderlineWidth / 2;
+            int subUnderlineHeight = Math.max(dividerFadeSmall.getHeight(), 4);
+            g2d.setComposite(java.awt.AlphaComposite.getInstance(java.awt.AlphaComposite.SRC_OVER, 0.9f));
+            PixelArtUI.drawNineSlice(g2d, dividerFadeSmall, subUnderlineX, subUnderlineY, subUnderlineWidth, subUnderlineHeight);
+            g2d.setComposite(java.awt.AlphaComposite.SrcOver);
+        }
     }
 
     private void drawButton(Graphics2D g2d, MenuButton btn) {
@@ -163,16 +221,25 @@ class MenuUI extends JPanel {
 
         // Simple text buttons matching reference style (sans-serif)
         Font bodyFont = new Font(Font.SANS_SERIF, Font.PLAIN, 26);
-        g2d.setFont(bodyFont);
+        g2d.setFont(bodyFont.deriveFont(isHovered ? Font.BOLD : Font.PLAIN));
         FontMetrics fm = g2d.getFontMetrics();
         int textWidth = fm.stringWidth(btn.text);
         int tx = btn.x - textWidth / 2;
         int ty = btn.y;
 
         // Simple white text (matching reference "Continue", "New game", "Options")
-        g2d.setFont(bodyFont.deriveFont(isHovered ? Font.BOLD : Font.PLAIN));
-        g2d.setColor(UITheme.PRIMARY_WHITE);
+        Color textColor = isHovered ? UITheme.PRIMARY_GREEN : UITheme.PRIMARY_WHITE;
+        g2d.setColor(textColor);
         g2d.drawString(btn.text, tx, ty);
+
+        // Draw normal underline only when hovered
+        if (isHovered) {
+            int underlineY = ty + fm.getDescent() + 4;
+            int underlineX = tx;
+            g2d.setStroke(new BasicStroke(2f));
+            g2d.setColor(textColor);
+            g2d.drawLine(underlineX, underlineY, underlineX + textWidth, underlineY);
+        }
     }
 
     private static class MenuButton {

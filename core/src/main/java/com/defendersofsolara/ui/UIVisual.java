@@ -14,14 +14,13 @@ public class UIVisual {
         private final JPanel content;
         private BufferedImage bgImage;
         private javax.swing.Timer timer;
-        private float glow = 0;
 
         public BackgroundPanel(JPanel content) {
             super(null);
             this.content = content;
             setOpaque(true);
             loadBackgroundImage();
-            timer = new javax.swing.Timer(40, e -> { glow += 0.03f; repaint(); });
+            timer = new javax.swing.Timer(40, e -> { repaint(); });
             timer.start();
             add(content);
             updateContentBounds();

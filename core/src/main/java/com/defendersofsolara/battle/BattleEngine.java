@@ -4,7 +4,6 @@ import com.defendersofsolara.characters.heroes.Hero;
 import com.defendersofsolara.characters.enemies.Enemy;
 import com.defendersofsolara.core.Character;
 import com.defendersofsolara.core.Skill;
-import com.defendersofsolara.ui._backup.BattleUI;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -13,14 +12,13 @@ public class BattleEngine {
 
     private List<Hero> heroes;
     private List<Enemy> enemies;
-    private Random rand = new Random();
 
     public BattleEngine(List<Hero> heroes, List<Enemy> enemies) {
         this.heroes = heroes;
         this.enemies = enemies;
     }
 
-    public BattleEngine(int worldId, List<Character> characters, BattleUI battleUI) {
+    public BattleEngine(int worldId, List<Character> characters) {
         // Separate characters into heroes and enemies
         this.heroes = characters.stream()
             .filter(c -> c instanceof Hero)

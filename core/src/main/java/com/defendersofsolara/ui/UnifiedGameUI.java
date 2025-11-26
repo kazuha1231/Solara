@@ -13,6 +13,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
+import java.awt.AlphaComposite;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Toolkit;
@@ -93,10 +94,18 @@ public class UnifiedGameUI extends JFrame {
     private JPanel battleSkillPanel;
     private JPanel battlePlayerPanel;
     private JPanel battleEnemyPanel;
+    private JPanel battleCharacterListPanel; // Left side character portrait list
+    private JPanel battleCharacterDetailsPanel; // Bottom left character details
+    private JPanel battleAttackDetailsPanel; // Bottom right attack details
+    private JPanel battleEnemyDetailsPanel; // Bottom right enemy stats
+    private JPanel battleEventLogPanel; // Bottom right event log
 
     private final Random random = new Random();
     private List<WaveEncounter> currentWavePlan = new ArrayList<>();
     private int activeWaveIndex = 0;
+    
+    // Background image
+    private BufferedImage menuBackground = null;
 
     // ==================== CONSTRUCTOR ====================
 
@@ -109,6 +118,7 @@ public class UnifiedGameUI extends JFrame {
         configureDisplayScale();
         initializeProfiles();
         loadWorldIcons();
+        loadMenuBackground();
         cardLayout = new CardLayout();
         mainContainer = new JPanel(cardLayout);
 
@@ -279,7 +289,88 @@ public class UnifiedGameUI extends JFrame {
     }
 
     // ==================== BACKGROUND ====================
-    // Background is now a solid dark color matching the reference style
+
+    /**
+     * Creates a beautiful readable label with text shadow and divider fade underline.
+     */
+    private JLabel createReadableLabel(String text, Font font, Color color, int alignment) {
+        JLabel label = new JLabel(text, alignment) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+                g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                g2d.setFont(getFont());
+                
+                FontMetrics fm = g2d.getFontMetrics();
+                int textWidth = fm.stringWidth(getText());
+                int x = alignment == SwingConstants.CENTER ? (getWidth() - textWidth) / 2 : 
+                        alignment == SwingConstants.RIGHT ? getWidth() - textWidth - 5 : 5;
+                int y = (getHeight() + fm.getAscent() - fm.getDescent()) / 2;
+                
+                // Draw text shadow for readability (multiple layers for depth)
+                g2d.setColor(new Color(0, 0, 0, 200)); // Strong shadow
+                g2d.drawString(getText(), x + 2, y + 2);
+                g2d.setColor(new Color(0, 0, 0, 120)); // Softer shadow
+                g2d.drawString(getText(), x + 1, y + 1);
+                
+                // Draw main text with slight glow effect
+                g2d.setColor(new Color(getForeground().getRed(), getForeground().getGreen(), getForeground().getBlue(), 200));
+                g2d.drawString(getText(), x, y - 1);
+                g2d.setColor(getForeground());
+                g2d.drawString(getText(), x, y);
+                
+                // Draw beautiful divider fade underline below text
+                // Try different divider fade variants based on font size
+                String dividerPath = "/kennyresources/PNG/Default/Divider Fade/divider-fade-000.png";
+                if (font.getSize() >= 24) {
+                    dividerPath = "/kennyresources/PNG/Default/Divider Fade/divider-fade-002.png"; // Thicker for large titles
+                } else if (font.getSize() >= 18) {
+                    dividerPath = "/kennyresources/PNG/Default/Divider Fade/divider-fade-001.png"; // Medium for subtitles
+                }
+                
+                BufferedImage dividerFade = PixelArtUI.loadImage(dividerPath);
+                if (dividerFade == null) {
+                    dividerFade = PixelArtUI.loadImage("/kennyresources/PNG/Default/Divider Fade/divider-fade-000.png");
+                }
+                
+                if (dividerFade != null) {
+                    int underlineY = y + fm.getDescent() + 8; // Position below text with nice spacing
+                    int underlineWidth = Math.max(textWidth + 40, 120); // Wider than text for elegance
+                    int underlineX = alignment == SwingConstants.CENTER ? (getWidth() - underlineWidth) / 2 :
+                                    alignment == SwingConstants.RIGHT ? getWidth() - underlineWidth - 5 : 5;
+                    int underlineHeight = Math.max(dividerFade.getHeight(), 4); // Ensure minimum height
+                    
+                    // Draw with slight transparency for elegance
+                    g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.9f));
+                    PixelArtUI.drawNineSlice(g2d, dividerFade, underlineX, underlineY, underlineWidth, underlineHeight);
+                    g2d.setComposite(AlphaComposite.SrcOver);
+                }
+                
+                g2d.dispose();
+            }
+        };
+        label.setFont(font);
+        label.setForeground(color);
+        label.setOpaque(false);
+        return label;
+    }
+    
+    private void loadMenuBackground() {
+        try {
+            java.net.URL url = getClass().getResource("/image/menu.png");
+            if (url != null) {
+                menuBackground = javax.imageio.ImageIO.read(url);
+                System.out.println("✓ Loaded menu background: " + menuBackground.getWidth() + "x" + menuBackground.getHeight());
+            } else {
+                System.err.println("✗ Menu background not found: /image/menu.png");
+            }
+        } catch (Exception e) {
+            System.err.println("ERROR loading menu background: " + e.getMessage());
+            e.printStackTrace();
+                }
+    }
 
     private void initializeProfiles() {
         try {
@@ -296,7 +387,7 @@ public class UnifiedGameUI extends JFrame {
         }
         activeProfile = 0;
         playerProgress = profileSlots[activeProfile];
-    }
+        }
 
     private void loadWorldIcons() {
         worldIcons.clear();
@@ -344,8 +435,8 @@ public class UnifiedGameUI extends JFrame {
             System.err.println("ERROR loading world art: " + resourcePath);
             e.printStackTrace();
             return null;
+            }
         }
-    }
 
     /**
      * Creates a scaled ImageIcon that preserves GIF animation.
@@ -379,12 +470,12 @@ public class UnifiedGameUI extends JFrame {
             public int getIconWidth() {
                 return targetSize;
             }
-            
+
             @Override
             public int getIconHeight() {
                 return targetSize;
-            }
-            
+        }
+
             @Override
             public Image getImage() {
                 return originalImage;
@@ -396,10 +487,29 @@ public class UnifiedGameUI extends JFrame {
      * Utility for other panels to paint the shared background consistently.
      */
     void paintBackground(Graphics2D g2d, int width, int height) {
-        // Very dark blue-gray/charcoal background matching reference
-        g2d.setColor(UITheme.BG_DARK_TEAL);
-        g2d.fillRect(0, 0, width, height);
-    }
+        // Draw menu.png background if available, otherwise use solid color
+        if (menuBackground != null) {
+            // Scale and center the background image
+            int imgW = menuBackground.getWidth();
+            int imgH = menuBackground.getHeight();
+            double scaleX = (double) width / imgW;
+            double scaleY = (double) height / imgH;
+            double scale = Math.max(scaleX, scaleY); // Cover entire area
+            
+            int scaledW = (int) (imgW * scale);
+            int scaledH = (int) (imgH * scale);
+            int x = (width - scaledW) / 2;
+            int y = (height - scaledH) / 2;
+
+            g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+            g2d.drawImage(menuBackground, x, y, scaledW, scaledH, null);
+        } else {
+            // Fallback: Very dark blue-gray/charcoal background
+            g2d.setColor(UITheme.BG_DARK_TEAL);
+            g2d.fillRect(0, 0, width, height);
+            }
+        }
 
     private JPanel createBackgroundPanel() {
         return new JPanel() {
@@ -419,7 +529,7 @@ public class UnifiedGameUI extends JFrame {
         JPanel profile = new ProfileUI(this);
         profile.setName(SCREEN_PROFILE_SELECT);
         return profile;
-    }
+        }
 
     // ==================== EPIC MAIN MENU ====================
 
@@ -700,22 +810,44 @@ public class UnifiedGameUI extends JFrame {
     // ==================== WORLD SELECTION ====================
 
     private JPanel createWorldSelection() {
-        JPanel panel = createBackgroundPanel();
-        panel.setLayout(new BorderLayout(10, 10));
+        JPanel panel = new JPanel(new BorderLayout(10, 10)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                paintBackground(g2d, getWidth(), getHeight());
+                
+                // Very dark vignette overlay (matching profile menu)
+                g2d.setColor(new Color(0, 0, 0, 200));
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+                
+                // Subtle orange glow behind the world cards (from palette)
+                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
+                g2d.setPaint(new RadialGradientPaint(
+                    new Point(getWidth() / 2, getHeight() / 2),
+                    Math.max(getWidth(), getHeight()) / 3f,
+                    new float[]{0f, 1f},
+                    new Color[]{new Color(220, 120, 60, 120), new Color(0, 0, 0, 0)}
+                ));
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+                g2d.setComposite(AlphaComposite.SrcOver);
+            }
+        };
+        panel.setOpaque(false);
 
         JLabel title = UITheme.createTitle("SELECT YOUR WORLD");
         title.setHorizontalAlignment(SwingConstants.CENTER);
 
-        JLabel levelInfo = new JLabel(
+        JLabel levelInfo = createReadableLabel(
             String.format("Level %d   |   EXP %d / %d",
                 playerProgress.getPlayerLevel(),
                 playerProgress.getCurrentExp(),
                 playerProgress.getExpToNext()
             ),
+            UITheme.FONT_TEXT,
+            UITheme.PRIMARY_ORANGE,
             SwingConstants.CENTER
         );
-        levelInfo.setForeground(UITheme.PRIMARY_ORANGE);
-        levelInfo.setFont(UITheme.FONT_TEXT);
 
         JPanel titlePanel = new JPanel(new GridLayout(2, 1));
         titlePanel.setOpaque(false);
@@ -771,35 +903,26 @@ public class UnifiedGameUI extends JFrame {
                                      : UITheme.BG_CARD)
                     : new Color(UITheme.BG_CARD.getRed() - 10, UITheme.BG_CARD.getGreen() - 10, UITheme.BG_CARD.getBlue() - 10);
                 
+                // Dark background (matching profile menu style - solid, not transparent)
                 g2d.setColor(bg);
                 g2d.fillRect(0, 0, getWidth(), getHeight());
                 
-                // Use Panel asset (includes background and border) - matching reference style
-                BufferedImage panelImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Panel/panel-000.png");
-                if (panelImg != null) {
-                    float alpha = isUnlocked ? (isHovered[0] ? 1.0f : 0.9f) : 0.5f;
-                    g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
-                    PixelArtUI.drawNineSlice(g2d, panelImg, 0, 0, getWidth(), getHeight());
+                // Use only panel border (not full panel)
+                java.awt.image.BufferedImage borderImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Border/panel-border-000.png");
+                if (borderImg != null) {
+                    float alpha = isUnlocked ? (isHovered[0] ? 1.0f : 0.9f) : 0.6f;
+                    g2d.setComposite(java.awt.AlphaComposite.getInstance(java.awt.AlphaComposite.SRC_OVER, alpha));
+                    PixelArtUI.drawNineSlice(g2d, borderImg, 0, 0, getWidth(), getHeight());
                 } else {
-                    // Fallback: dark background with border
-                    g2d.setColor(UITheme.BG_CARD);
-                    g2d.fillRect(0, 0, getWidth(), getHeight());
-                    
-                    BufferedImage borderImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Border/panel-border-000.png");
-                    if (borderImg != null) {
-                        float alpha = isUnlocked ? (isHovered[0] ? 1.0f : 0.9f) : 0.5f;
-                        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
-                        PixelArtUI.drawNineSlice(g2d, borderImg, 0, 0, getWidth(), getHeight());
-                    } else {
-                        Color borderColor = isUnlocked && isHovered[0] 
-                            ? UITheme.BORDER_HIGHLIGHT 
-                            : isUnlocked 
-                                ? UITheme.BORDER_NORMAL
-                                : new Color(UITheme.BORDER_NORMAL.getRed(), UITheme.BORDER_NORMAL.getGreen(), UITheme.BORDER_NORMAL.getBlue(), 100);
-                        g2d.setColor(borderColor);
-                        g2d.setStroke(new BasicStroke(2f));
-                        g2d.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
-                    }
+                    // Fallback: simple border
+                    Color borderColor = isUnlocked && isHovered[0] 
+                        ? UITheme.BORDER_HIGHLIGHT 
+                        : isUnlocked 
+                            ? UITheme.BORDER_NORMAL
+                            : new Color(UITheme.BORDER_NORMAL.getRed(), UITheme.BORDER_NORMAL.getGreen(), UITheme.BORDER_NORMAL.getBlue(), 120);
+                    g2d.setColor(borderColor);
+                    g2d.setStroke(new BasicStroke(2f));
+                    g2d.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
                 }
                 
                 g2d.dispose();
@@ -813,17 +936,10 @@ public class UnifiedGameUI extends JFrame {
             Cursor.getDefaultCursor()
         );
 
-        JLabel worldLabel = new JLabel("WORLD " + worldId, SwingConstants.CENTER);
-        worldLabel.setFont(UITheme.FONT_HEADER);
-        worldLabel.setForeground(isUnlocked ? UITheme.PRIMARY_GREEN : UITheme.TEXT_GRAY);
-
-        JLabel nameLabel = new JLabel(name, SwingConstants.CENTER);
-        nameLabel.setFont(UITheme.FONT_TEXT);
-        nameLabel.setForeground(isUnlocked ? UITheme.PRIMARY_WHITE : UITheme.TEXT_GRAY);
-
-        JLabel coreLabel = new JLabel("Core: " + core, SwingConstants.CENTER);
-        coreLabel.setFont(UITheme.FONT_TEXT);
-        coreLabel.setForeground(isUnlocked ? UITheme.PRIMARY_YELLOW : UITheme.TEXT_GRAY);
+        // Create labels with text shadows for readability on transparent background
+        JLabel worldLabel = createReadableLabel("WORLD " + worldId, UITheme.FONT_HEADER, isUnlocked ? UITheme.PRIMARY_GREEN : UITheme.TEXT_GRAY, SwingConstants.CENTER);
+        JLabel nameLabel = createReadableLabel(name, UITheme.FONT_TEXT, isUnlocked ? UITheme.PRIMARY_WHITE : UITheme.TEXT_GRAY, SwingConstants.CENTER);
+        JLabel coreLabel = createReadableLabel("Core: " + core, UITheme.FONT_TEXT, isUnlocked ? UITheme.PRIMARY_YELLOW : UITheme.TEXT_GRAY, SwingConstants.CENTER);
 
         boolean meetsLevel = playerProgress.getPlayerLevel() >= playerProgress.getWorldRequirement(worldId);
         boolean clearedPrev = worldId == 1 || playerProgress.hasClearedWorld(worldId - 1);
@@ -837,9 +953,7 @@ public class UnifiedGameUI extends JFrame {
         } else {
             statusText = "Locked";
         }
-        JLabel statusLabel = new JLabel(statusText, SwingConstants.CENTER);
-        statusLabel.setFont(UITheme.FONT_SMALL);
-        statusLabel.setForeground(isUnlocked ? UITheme.PRIMARY_ORANGE : UITheme.TEXT_GRAY);
+        JLabel statusLabel = createReadableLabel(statusText, UITheme.FONT_SMALL, isUnlocked ? UITheme.PRIMARY_ORANGE : UITheme.TEXT_GRAY, SwingConstants.CENTER);
         statusLabel.setBorder(new EmptyBorder(6, 0, 0, 0));
 
         JPanel contentPanel = new JPanel();
@@ -889,7 +1003,7 @@ public class UnifiedGameUI extends JFrame {
 
         // Store reference to iconLabel for hover animation control
         final JLabel finalIconLabel = iconLabel;
-        
+
         if (isUnlocked) {
             card.addMouseListener(new MouseAdapter() {
                 @Override
@@ -925,36 +1039,304 @@ public class UnifiedGameUI extends JFrame {
     // ==================== WORLD STORY ====================
 
     private JPanel createWorldStory(int worldId) {
-        JPanel panel = createBackgroundPanel();
-        panel.setLayout(new BorderLayout());
-
-        JTextArea storyText = new JTextArea();
-        storyText.setFont(UITheme.FONT_TEXT);
-        storyText.setForeground(UITheme.PRIMARY_ORANGE);
-        storyText.setBackground(new Color(0, 0, 0, 0));
-        storyText.setEditable(false);
-        storyText.setLineWrap(true);
-        storyText.setWrapStyleWord(true);
-        storyText.setMargin(new Insets(40, 60, 40, 60));
-        storyText.setOpaque(false);
-        storyText.setText("WORLD " + worldId + "\n\nPrepare for battle...");
-
-        JPanel textPanel = UITheme.createOverlayPanel();
-        textPanel.setLayout(new BorderLayout());
-        textPanel.setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30));
-        textPanel.add(storyText, BorderLayout.CENTER);
-
-        JButton continueBtn = UITheme.createButton("CONTINUE >");
-        continueBtn.addActionListener(e -> showBattle(worldId));
-
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        buttonPanel.setOpaque(false);
-        buttonPanel.add(continueBtn);
-
-        panel.add(textPanel, BorderLayout.CENTER);
-        panel.add(buttonPanel, BorderLayout.SOUTH);
-
-        return panel;
+        // Get unique story for each world
+        String story = getWorldStory(worldId);
+        
+        // Create a custom panel with black background and fade animation
+        StoryPanel storyPanel = new StoryPanel(story, worldId);
+        
+        return storyPanel;
+    }
+    
+    private class StoryPanel extends JPanel {
+        private final String story;
+        private final int worldId;
+        private float textAlpha = 0f;
+        private int currentSentenceIndex = 0;
+        private String[] sentences;
+        private javax.swing.Timer fadeTimer;
+        private boolean isFadingIn = true;
+        private boolean isFadingOut = false;
+        private boolean storyComplete = false;
+        
+        public StoryPanel(String story, int worldId) {
+            this.story = story;
+            this.worldId = worldId;
+            setLayout(new BorderLayout());
+            setOpaque(true);
+            setBackground(Color.BLACK);
+            
+            // Add mouse listener to skip animation on click
+            addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    // Skip to battle immediately
+                    if (fadeTimer != null) {
+                        fadeTimer.stop();
+                    }
+                    showBattle(worldId);
+                }
+            });
+            
+            // Initialize sentences when component is shown
+            addComponentListener(new ComponentAdapter() {
+                @Override
+                public void componentShown(ComponentEvent e) {
+                    initializeSentences();
+                }
+            });
+        }
+        
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            Graphics2D g2d = (Graphics2D) g.create();
+            g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            
+            // Fill entire screen with black
+            g2d.setColor(Color.BLACK);
+            g2d.fillRect(0, 0, getWidth(), getHeight());
+            
+            // Draw current sentence with fade
+            if (sentences != null && currentSentenceIndex < sentences.length && !storyComplete) {
+                String sentence = sentences[currentSentenceIndex].trim();
+                if (!sentence.isEmpty()) {
+                    g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, textAlpha));
+                    
+                    // Use large, readable font
+                    Font storyFont = new Font(Font.SANS_SERIF, Font.PLAIN, 28);
+                    g2d.setFont(storyFont);
+                    g2d.setColor(UITheme.PRIMARY_ORANGE);
+                    
+                    // Center the text
+                    FontMetrics fm = g2d.getFontMetrics();
+                    String[] lines = wrapText(sentence, getWidth() - 120, fm);
+                    int totalHeight = lines.length * (fm.getHeight() + 10);
+                    int startY = (getHeight() - totalHeight) / 2 + fm.getAscent();
+                    
+                    for (int i = 0; i < lines.length; i++) {
+                        int textWidth = fm.stringWidth(lines[i]);
+                        int x = (getWidth() - textWidth) / 2;
+                        int y = startY + i * (fm.getHeight() + 10);
+                        g2d.drawString(lines[i], x, y);
+                    }
+                }
+            }
+            
+            g2d.dispose();
+        }
+        
+        private String[] wrapText(String text, int maxWidth, FontMetrics fm) {
+            List<String> lines = new ArrayList<>();
+            String[] words = text.split(" ");
+            StringBuilder currentLine = new StringBuilder();
+            
+            for (String word : words) {
+                String testLine = currentLine.length() > 0 
+                    ? currentLine.toString() + " " + word 
+                    : word;
+                int width = fm.stringWidth(testLine);
+                
+                if (width > maxWidth && currentLine.length() > 0) {
+                    lines.add(currentLine.toString());
+                    currentLine = new StringBuilder(word);
+                } else {
+                    if (currentLine.length() > 0) {
+                        currentLine.append(" ");
+                    }
+                    currentLine.append(word);
+                }
+            }
+            if (currentLine.length() > 0) {
+                lines.add(currentLine.toString());
+            }
+            return lines.toArray(new String[0]);
+        }
+        
+        private void initializeSentences() {
+            // Split story into sentences (by periods, exclamation, question marks, and newlines)
+            String[] splitByNewline = story.split("\n\n");
+            List<String> sentenceList = new ArrayList<>();
+            
+            for (String paragraph : splitByNewline) {
+                // Split by sentence endings
+                String[] parts = paragraph.split("(?<=[.!?])\\s+");
+                for (String part : parts) {
+                    String trimmed = part.trim();
+                    if (!trimmed.isEmpty()) {
+                        sentenceList.add(trimmed);
+                    }
+                }
+            }
+            
+            sentences = sentenceList.toArray(new String[0]);
+            currentSentenceIndex = 0;
+            textAlpha = 0f;
+            isFadingIn = true;
+            isFadingOut = false;
+            storyComplete = false;
+            
+            if (sentences.length > 0) {
+                startFadeAnimation();
+            } else {
+                // No sentences, go straight to battle
+                storyComplete = true;
+                javax.swing.Timer delayTimer = new javax.swing.Timer(500, e -> {
+                    showBattle(worldId);
+                    ((javax.swing.Timer) e.getSource()).stop();
+                });
+                delayTimer.setRepeats(false);
+                delayTimer.start();
+            }
+        }
+        
+        private void startFadeAnimation() {
+            if (fadeTimer != null && fadeTimer.isRunning()) {
+                fadeTimer.stop();
+            }
+            
+                fadeTimer = new javax.swing.Timer(16, null); // ~60 FPS
+                fadeTimer.addActionListener(new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        if (storyComplete) {
+                            fadeTimer.stop();
+                            return;
+                        }
+                        
+                        if (isFadingIn) {
+                            // Fade in current sentence
+                            textAlpha += 0.03f;
+                            if (textAlpha >= 1f) {
+                                textAlpha = 1f;
+                                isFadingIn = false;
+                                // Hold for 3 seconds
+                                javax.swing.Timer holdTimer = new javax.swing.Timer(3000, evt -> {
+                                    isFadingOut = true;
+                                    ((javax.swing.Timer) evt.getSource()).stop();
+                                });
+                                holdTimer.setRepeats(false);
+                                holdTimer.start();
+                            }
+                        } else if (isFadingOut) {
+                            // Fade out current sentence
+                            textAlpha -= 0.03f;
+                            if (textAlpha <= 0f) {
+                                textAlpha = 0f;
+                                isFadingOut = false;
+                                // Move to next sentence
+                                currentSentenceIndex++;
+                                if (currentSentenceIndex >= sentences.length) {
+                                    // All sentences shown, transition to battle
+                                    storyComplete = true;
+                                    fadeTimer.stop();
+                                    // Small delay before transitioning
+                                    javax.swing.Timer transitionTimer = new javax.swing.Timer(500, evt -> {
+                                        showBattle(worldId);
+                                        ((javax.swing.Timer) evt.getSource()).stop();
+                                    });
+                                    transitionTimer.setRepeats(false);
+                                    transitionTimer.start();
+                                } else {
+                                    // Start fading in next sentence
+                                    isFadingIn = true;
+                                }
+                            }
+                        }
+                        repaint();
+                    }
+                });
+                fadeTimer.start();
+        }
+    }
+    
+    private String getWorldStory(int worldId) {
+        switch (worldId) {
+            case 1: // Chronovale - Time Core
+                return "WORLD 1: CHRONOVALE\n" +
+                       "Core of Time\n\n" +
+                       "The first world of the Veil System, Chronovale was once a realm where time flowed " +
+                       "in perfect harmony. Ancient civilizations built monuments that stood for millennia, " +
+                       "their history preserved in crystalline structures that recorded every moment.\n\n" +
+                       "But Xyrrak's forces have arrived. Bio-mechanical horrors now stalk the temporal plains, " +
+                       "their very presence causing time to fracture and loop. The Time Core pulses erratically, " +
+                       "sending ripples of temporal chaos across the planet.\n\n" +
+                       "Your team arrives to find Chronovale's guardians already fallen. The Core's chamber " +
+                       "lies ahead, but Xyrrak's minions have twisted the flow of time itself into a weapon. " +
+                       "You must fight through temporal anomalies and corrupted guardians to reach the Core.\n\n" +
+                       "If the Time Core falls, the very foundation of causality will shatter. The galaxy " +
+                       "cannot afford to lose this first line of defense.";
+                       
+            case 2: // Gravemire - Gravity Core
+                return "WORLD 2: GRAVEMIRE\n" +
+                       "Core of Gravity\n\n" +
+                       "Gravemire, the second world, was a planet of impossible architecture—cities built " +
+                       "on floating islands that defied gravity, connected by bridges of pure gravitational force. " +
+                       "The Gravity Core maintained perfect balance, allowing life to thrive in a world where " +
+                       "up and down were mere suggestions.\n\n" +
+                       "Xyrrak's corruption has already begun. The floating cities now drift aimlessly, " +
+                       "their gravitational fields unstable. Some islands crash into each other, while others " +
+                       "spin wildly into the void. The Core's chamber itself has become a labyrinth of " +
+                       "shifting gravity wells.\n\n" +
+                       "Reports speak of a massive bio-mechanical construct that has fused with the Core's " +
+                       "chamber, using gravity as both shield and weapon. Your team must navigate the " +
+                       "chaotic gravitational fields and face the corrupted guardian.\n\n" +
+                       "Time is running out. With each passing moment, Xyrrak's influence grows stronger.";
+                       
+            case 3: // Aetherion - Energy Core
+                return "WORLD 3: AETHERION\n" +
+                       "Core of Energy\n\n" +
+                       "Aetherion was the most vibrant of the Veil worlds—a planet where pure energy flowed " +
+                       "like rivers of light. The Energy Core powered entire civilizations, its power so vast " +
+                       "that it could reshape matter itself. Here, technology and magic merged seamlessly.\n\n" +
+                       "But Xyrrak's ambition has turned Aetherion into a nightmare. The energy flows have " +
+                       "become corrupted, twisting into violent storms of raw power. The Core itself has " +
+                       "begun to overload, its energy bleeding into reality in chaotic bursts.\n\n" +
+                       "Your team discovers that Xyrrak has sent one of his most powerful lieutenants to " +
+                       "harness the Core's energy. The chamber is a maelstrom of unstable power, and the " +
+                       "guardian has been transformed into a being of pure, corrupted energy.\n\n" +
+                       "As you prepare to enter the Core chamber, you sense a new presence—a warrior who " +
+                       "has been fighting Xyrrak's forces alone. Perhaps an ally will join your cause...";
+                       
+            case 4: // Elarion - Life Core
+                return "WORLD 4: ELARION\n" +
+                       "Core of Life\n\n" +
+                       "Elarion was the heart of the Veil System—a world of unparalleled beauty where life " +
+                       "flourished in impossible forms. The Life Core sustained all living things, its power " +
+                       "flowing through every plant, every creature, every breath. It was said that on Elarion, " +
+                       "death itself was merely a transition.\n\n" +
+                       "But Xyrrak's corruption has struck Elarion hardest. The Life Core has been twisted, " +
+                       "its power perverted to create abominations—living things fused with mechanical parts, " +
+                       "creatures that should not exist. The once-beautiful forests now writhe with " +
+                       "bio-mechanical horrors.\n\n" +
+                       "The Core's chamber has become a nightmare of organic and mechanical fusion. The " +
+                       "guardian, once a protector of all life, has been transformed into a monstrous " +
+                       "amalgamation of flesh and steel.\n\n" +
+                       "This is the last Core before Umbros. If you fail here, Xyrrak will have all the " +
+                       "power he needs to complete his ascension. The fate of the galaxy hangs in the balance.";
+                       
+            case 5: // Umbros - Void Core (Xyrrak's domain)
+                return "WORLD 5: UMBROS\n" +
+                       "Core of Void\n\n" +
+                       "Umbros was never meant to be a world. It is a void—a place where reality itself " +
+                       "becomes uncertain. The Void Core exists here, not as a source of power, but as a " +
+                       "balance to all existence. It is the emptiness that gives meaning to everything else.\n\n" +
+                       "But Xyrrak has made Umbros his throne. Here, in the heart of nothingness, he has " +
+                       "built his fortress. The Void Core has been corrupted beyond recognition, its power " +
+                       "twisted to serve Xyrrak's will. The other four Cores, already weakened, are being " +
+                       "drawn here, their energy feeding Xyrrak's transformation.\n\n" +
+                       "Your team stands at the threshold of the final battle. Through the void, you can " +
+                       "see Xyrrak the Devourer—no longer a warlord, but something far more terrible. " +
+                       "He has begun to fuse the Cores, ascending toward godhood.\n\n" +
+                       "This is it. The final stand. If you fail, Xyrrak will remake reality in his image, " +
+                       "and the Veil System—and all existence—will be lost forever. But if you succeed, " +
+                       "you will restore the Cores, purify what has been corrupted, and save the galaxy.\n\n" +
+                       "The four heroes, once divided, now stand united. Together, you are the last hope " +
+                       "of the Veil System. Together, you will face Xyrrak.";
+                       
+            default:
+                return "WORLD " + worldId + "\n\nPrepare for battle...";
+        }
     }
 
     // ==================== BATTLE SYSTEM ====================
@@ -973,13 +1355,26 @@ public class UnifiedGameUI extends JFrame {
         selectedSkill = null;
         waitingForTarget = false;
 
-        JPanel panel = new JPanel(new BorderLayout(10, 10));
-        panel.setOpaque(false);
+        // Dark battle background panel
+        JPanel panel = new JPanel(new BorderLayout(10, 10)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g.create();
+                // Very dark background for battle
+                g2d.setColor(new Color(5, 8, 12)); // Almost black
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+                g2d.dispose();
+            }
+        };
+        panel.setOpaque(true);
+        panel.setBackground(new Color(5, 8, 12));
         panel.setBorder(new EmptyBorder(10, 10, 10, 10));
 
-        panel.add(createBattleTopPanel(worldId), BorderLayout.NORTH);
-        panel.add(createBattleCenterPanel(), BorderLayout.CENTER);
-        panel.add(createBattleBottomPanel(), BorderLayout.SOUTH);
+        // Restructured battle UI to match reference layout
+        panel.add(createBattleTopBar(), BorderLayout.NORTH);
+        panel.add(createBattleMainArea(), BorderLayout.CENTER);
+        panel.add(createBattleBottomDetails(), BorderLayout.SOUTH);
 
         javax.swing.Timer startTimer = new javax.swing.Timer(500, e -> {
             startBattle();
@@ -1274,36 +1669,439 @@ public class UnifiedGameUI extends JFrame {
         JOptionPane.showMessageDialog(this, message.toString(), "Victory", JOptionPane.INFORMATION_MESSAGE);
     }
 
-    private JPanel createBattleTopPanel(int worldId) {
-        // Simple panel with palette colors
+    // New battle layout matching reference
+    private JPanel createBattleTopBar() {
+        // Top bar with turn info and pause icon
         JPanel panel = new JPanel(new BorderLayout()) {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2d = (Graphics2D) g.create();
                 g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2d.setColor(UITheme.BG_PANEL);
-                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-                g2d.setColor(UITheme.BORDER_NORMAL);
-                g2d.setStroke(new BasicStroke(2f));
-                g2d.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 8, 8);
+                // Dark background
+                Color bgColor = new Color(8, 10, 12, 240);
+                g2d.setColor(bgColor);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+                g2d.dispose();
+            }
+        };
+        panel.setOpaque(false);
+        panel.setBorder(new EmptyBorder(5, 10, 5, 10));
+        panel.setPreferredSize(new Dimension(getWidth(), 60));
+
+        // Center - Turn info and "SELECT AN ATTACK"
+        JPanel centerPanel = new JPanel();
+        centerPanel.setLayout(new BoxLayout(centerPanel, BoxLayout.Y_AXIS));
+        centerPanel.setOpaque(false);
+        
+        battleTurnLabel = new JLabel("Preparing...", SwingConstants.CENTER);
+        battleTurnLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 16));
+        battleTurnLabel.setForeground(new Color(UITheme.PRIMARY_ORANGE.getRed(), UITheme.PRIMARY_ORANGE.getGreen(), UITheme.PRIMARY_ORANGE.getBlue(), 200));
+        battleTurnLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
+        battleInstructionLabel = new JLabel("SELECT AN ATTACK", SwingConstants.CENTER);
+        battleInstructionLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 18));
+        battleInstructionLabel.setForeground(new Color(100, 150, 255)); // Light blue
+        battleInstructionLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
+        centerPanel.add(battleTurnLabel);
+        centerPanel.add(Box.createVerticalStrut(2));
+        centerPanel.add(battleInstructionLabel);
+
+        // Right side - Pause icon button
+        JPanel rightIcons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        rightIcons.setOpaque(false);
+        JButton pauseBtn = new JButton("⏸") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                if (getModel().isRollover()) {
+                    g2d.setColor(new Color(UITheme.PRIMARY_GREEN.getRed(), UITheme.PRIMARY_GREEN.getGreen(), UITheme.PRIMARY_GREEN.getBlue(), 100));
+                    g2d.fillRect(0, 0, getWidth(), getHeight());
+                }
+                g2d.setFont(getFont());
+                FontMetrics fm = g2d.getFontMetrics();
+                int textWidth = fm.stringWidth(getText());
+                int x = (getWidth() - textWidth) / 2;
+                int y = (getHeight() + fm.getAscent() - fm.getDescent()) / 2;
+                g2d.setColor(UITheme.PRIMARY_WHITE);
+                g2d.drawString(getText(), x, y);
+                g2d.dispose();
+            }
+        };
+        pauseBtn.setContentAreaFilled(false);
+        pauseBtn.setOpaque(false);
+        pauseBtn.setBorder(null);
+        pauseBtn.setPreferredSize(new Dimension(40, 40));
+        pauseBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        pauseBtn.addActionListener(e -> showPauseMenu());
+        rightIcons.add(pauseBtn);
+
+        panel.add(centerPanel, BorderLayout.CENTER);
+        panel.add(rightIcons, BorderLayout.EAST);
+
+        return panel;
+    }
+
+    private JPanel createBattleMainArea() {
+        // Main area with character list on left, battlefield in center, skill buttons
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
+        panel.setOpaque(false);
+
+        // Left side - Character portrait list (vertical)
+        battleCharacterListPanel = new JPanel();
+        battleCharacterListPanel.setLayout(new BoxLayout(battleCharacterListPanel, BoxLayout.Y_AXIS));
+        battleCharacterListPanel.setOpaque(false);
+        battleCharacterListPanel.setPreferredSize(new Dimension(80, 0));
+        battleCharacterListPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+        buildCharacterList();
+
+        // Center - Battlefield with characters and skill buttons
+        JPanel battlefieldPanel = new JPanel(new BorderLayout());
+        battlefieldPanel.setOpaque(false);
+
+        // Top: Character panels (players left, enemies right)
+        JPanel characterArea = new JPanel(new BorderLayout(20, 10));
+        characterArea.setOpaque(false);
+
+        // Player characters on left
+        battlePlayerPanel = new JPanel();
+        battlePlayerPanel.setLayout(new BoxLayout(battlePlayerPanel, BoxLayout.Y_AXIS));
+        battlePlayerPanel.setOpaque(false);
+        battlePlayerPanel.setPreferredSize(new Dimension(280, 0)); // Ensure proper width
+
+        // Enemy characters on right
+        battleEnemyPanel = new JPanel();
+        battleEnemyPanel.setLayout(new BoxLayout(battleEnemyPanel, BoxLayout.Y_AXIS));
+        battleEnemyPanel.setOpaque(false);
+        battleEnemyPanel.setPreferredSize(new Dimension(280, 0)); // Ensure proper width for full bars
+
+        buildBattleCharacterPanels();
+        characterArea.add(battlePlayerPanel, BorderLayout.WEST);
+        characterArea.add(battleEnemyPanel, BorderLayout.EAST);
+
+        // No skill buttons in center - they go in bottom right panel
+        battlefieldPanel.add(characterArea, BorderLayout.CENTER);
+
+        panel.add(battleCharacterListPanel, BorderLayout.WEST);
+        panel.add(battlefieldPanel, BorderLayout.CENTER);
+
+        return panel;
+    }
+
+    private JPanel createBattleBottomDetails() {
+        // Bottom panel: left = character stats, right = enemy stats + event log + skills
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
+        panel.setOpaque(false);
+        panel.setBorder(new EmptyBorder(10, 10, 10, 10));
+        panel.setPreferredSize(new Dimension(getWidth(), 220));
+
+        // Left: Selected character details panel
+        battleCharacterDetailsPanel = new JPanel(new BorderLayout(10, 10)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                Color bgColor = new Color(12, 15, 18, 220);
+                g2d.setColor(bgColor);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+                g2d.dispose();
+            }
+        };
+        battleCharacterDetailsPanel.setOpaque(false);
+        battleCharacterDetailsPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+        battleCharacterDetailsPanel.setPreferredSize(new Dimension(200, 0));
+        updateCharacterDetails();
+
+        // Right: Container for enemy stats + event log + skills
+        JPanel rightContainer = new JPanel(new BorderLayout(5, 5));
+        rightContainer.setOpaque(false);
+
+        // Top right: Enemy stats panel
+        battleEnemyDetailsPanel = new JPanel(new BorderLayout(5, 5)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                Color bgColor = new Color(12, 15, 18, 220);
+                g2d.setColor(bgColor);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+                g2d.dispose();
+            }
+        };
+        battleEnemyDetailsPanel.setOpaque(false);
+        battleEnemyDetailsPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
+        battleEnemyDetailsPanel.setPreferredSize(new Dimension(180, 0));
+        updateEnemyDetails();
+
+        // Center right: Event log panel
+        battleEventLogPanel = new JPanel(new BorderLayout(5, 5)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                Color bgColor = new Color(12, 15, 18, 220);
+                g2d.setColor(bgColor);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+                g2d.dispose();
+            }
+        };
+        battleEventLogPanel.setOpaque(false);
+        battleEventLogPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
+        
+        // Battle log
+        battleLog = new JTextArea();
+        battleLog.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 11));
+        battleLog.setEditable(false);
+        battleLog.setLineWrap(true);
+        battleLog.setWrapStyleWord(true);
+        battleLog.setBackground(new Color(8, 10, 12));
+        battleLog.setForeground(new Color(UITheme.LOG_TEXT.getRed(), UITheme.LOG_TEXT.getGreen(), UITheme.LOG_TEXT.getBlue(), 200));
+        battleLog.setOpaque(true);
+        JScrollPane logScroll = new JScrollPane(battleLog);
+        logScroll.setOpaque(false);
+        logScroll.getViewport().setOpaque(false);
+        logScroll.setBorder(null);
+        logScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        logScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        battleEventLogPanel.add(logScroll, BorderLayout.CENTER);
+
+        // Bottom right: Skills panel
+        battleAttackDetailsPanel = new JPanel(new BorderLayout(5, 5)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                Color bgColor = new Color(12, 15, 18, 220);
+                g2d.setColor(bgColor);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+                g2d.dispose();
+            }
+        };
+        battleAttackDetailsPanel.setOpaque(false);
+        battleAttackDetailsPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
+        battleAttackDetailsPanel.setPreferredSize(new Dimension(200, 0));
+        
+        // Initialize skill panel container
+        JPanel initialSkillPanel = new JPanel();
+        initialSkillPanel.setLayout(new BoxLayout(initialSkillPanel, BoxLayout.Y_AXIS));
+        initialSkillPanel.setOpaque(false);
+        initialSkillPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
+        battleSkillPanel = initialSkillPanel;
+        JScrollPane skillScroll = new JScrollPane(initialSkillPanel);
+        skillScroll.setOpaque(false);
+        skillScroll.getViewport().setOpaque(false);
+        skillScroll.setBorder(null);
+        skillScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        skillScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        battleAttackDetailsPanel.add(skillScroll, BorderLayout.CENTER);
+        
+        // Update will populate skills
+        updateAttackDetails();
+
+        // Add panels to right container
+        rightContainer.add(battleEnemyDetailsPanel, BorderLayout.WEST);
+        rightContainer.add(battleEventLogPanel, BorderLayout.CENTER);
+        rightContainer.add(battleAttackDetailsPanel, BorderLayout.EAST);
+
+        panel.add(battleCharacterDetailsPanel, BorderLayout.WEST);
+        panel.add(rightContainer, BorderLayout.EAST);
+
+        return panel;
+    }
+    
+    private void updateEnemyDetails() {
+        battleEnemyDetailsPanel.removeAll();
+        if (enemyTeam == null || enemyTeam.length == 0) return;
+
+        JPanel details = new JPanel();
+        details.setLayout(new BoxLayout(details, BoxLayout.Y_AXIS));
+        details.setOpaque(false);
+
+        JLabel titleLabel = new JLabel("ENEMIES");
+        titleLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
+        titleLabel.setForeground(UITheme.PRIMARY_RED);
+        details.add(titleLabel);
+        details.add(Box.createVerticalStrut(5));
+
+        for (Character e : enemyTeam) {
+            if (e != null && e.isAlive()) {
+                JLabel enemyLabel = new JLabel(e.name);
+                enemyLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 11));
+                enemyLabel.setForeground(UITheme.PRIMARY_WHITE);
+                details.add(enemyLabel);
+                
+                JLabel hpLabel = new JLabel("❤ " + e.currentHP + "/" + e.maxHP);
+                hpLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 10));
+                hpLabel.setForeground(UITheme.PRIMARY_WHITE);
+                details.add(hpLabel);
+                
+                JLabel manaLabel = new JLabel("💙 " + e.currentMana + "/" + e.maxMana);
+                manaLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 10));
+                manaLabel.setForeground(UITheme.PRIMARY_WHITE);
+                details.add(manaLabel);
+                
+                details.add(Box.createVerticalStrut(5));
+            }
+        }
+
+        battleEnemyDetailsPanel.add(details, BorderLayout.CENTER);
+        battleEnemyDetailsPanel.revalidate();
+        battleEnemyDetailsPanel.repaint();
+    }
+
+    private void buildCharacterList() {
+        battleCharacterListPanel.removeAll();
+        if (playerTeam == null) return;
+
+        for (int i = 0; i < playerTeam.length; i++) {
+            final int index = i;
+            Character c = playerTeam[i];
+            JPanel portraitPanel = new JPanel(new BorderLayout()) {
+                @Override
+                protected void paintComponent(Graphics g) {
+                    super.paintComponent(g);
+                    Graphics2D g2d = (Graphics2D) g.create();
+                    boolean isSelected = (currentPlayerIndex == index);
+                    if (isSelected) {
+                        g2d.setColor(new Color(UITheme.PRIMARY_GREEN.getRed(), UITheme.PRIMARY_GREEN.getGreen(), UITheme.PRIMARY_GREEN.getBlue(), 150));
+                        g2d.fillRect(0, 0, getWidth(), getHeight());
+                    }
+                    g2d.dispose();
+                }
+            };
+            portraitPanel.setOpaque(false);
+            portraitPanel.setPreferredSize(new Dimension(60, 60));
+            portraitPanel.setBorder(BorderFactory.createLineBorder(
+                currentPlayerIndex == index ? UITheme.PRIMARY_GREEN : UITheme.BORDER_NORMAL, 
+                currentPlayerIndex == index ? 3 : 1
+            ));
+
+            JLabel nameLabel = new JLabel(c.name, SwingConstants.CENTER);
+            nameLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 10));
+            nameLabel.setForeground(UITheme.PRIMARY_WHITE);
+            portraitPanel.add(nameLabel, BorderLayout.CENTER);
+
+            battleCharacterListPanel.add(portraitPanel);
+            battleCharacterListPanel.add(Box.createVerticalStrut(5));
+        }
+
+        battleCharacterListPanel.revalidate();
+        battleCharacterListPanel.repaint();
+    }
+
+    private void updateCharacterDetails() {
+        battleCharacterDetailsPanel.removeAll();
+        if (playerTeam == null || currentPlayerIndex >= playerTeam.length) return;
+
+        Character c = playerTeam[currentPlayerIndex];
+        
+        JPanel details = new JPanel();
+        details.setLayout(new BoxLayout(details, BoxLayout.Y_AXIS));
+        details.setOpaque(false);
+
+        JLabel nameLabel = new JLabel(c.name);
+        nameLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 16));
+        nameLabel.setForeground(UITheme.PRIMARY_WHITE);
+        details.add(nameLabel);
+
+        JLabel typeLabel = new JLabel("Level " + c.level);
+        typeLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
+        typeLabel.setForeground(new Color(UITheme.PRIMARY_WHITE.getRed(), UITheme.PRIMARY_WHITE.getGreen(), UITheme.PRIMARY_WHITE.getBlue(), 180));
+        details.add(typeLabel);
+
+        details.add(Box.createVerticalStrut(10));
+
+        JLabel hpLabel = new JLabel("❤ " + c.currentHP + "/" + c.maxHP);
+        hpLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
+        hpLabel.setForeground(UITheme.PRIMARY_WHITE);
+        details.add(hpLabel);
+
+        JLabel manaLabel = new JLabel("💙 " + c.currentMana + "/" + c.maxMana);
+        manaLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
+        manaLabel.setForeground(UITheme.PRIMARY_WHITE);
+        details.add(manaLabel);
+
+        // Get attack and defense from character stats
+        JLabel atkLabel = new JLabel("⚔ " + c.currentAttack);
+        atkLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
+        atkLabel.setForeground(UITheme.PRIMARY_WHITE);
+        details.add(atkLabel);
+
+        JLabel defLabel = new JLabel("🛡 " + c.currentDefense);
+        defLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
+        defLabel.setForeground(UITheme.PRIMARY_WHITE);
+        details.add(defLabel);
+
+        battleCharacterDetailsPanel.add(details, BorderLayout.CENTER);
+        battleCharacterDetailsPanel.revalidate();
+        battleCharacterDetailsPanel.repaint();
+    }
+
+    private void updateAttackDetails() {
+        if (battleSkillPanel == null || playerTeam == null || currentPlayerIndex >= playerTeam.length) return;
+
+        Character c = playerTeam[currentPlayerIndex];
+        
+        // Clear existing skills
+        battleSkillPanel.removeAll();
+
+        if (c.skills != null && !c.skills.isEmpty()) {
+            loadBattleSkillButtons(c);
+        }
+
+        battleSkillPanel.revalidate();
+        battleSkillPanel.repaint();
+        battleAttackDetailsPanel.revalidate();
+        battleAttackDetailsPanel.repaint();
+    }
+
+    // Old method kept for reference but not used
+    private JPanel createBattleTopPanel(int worldId) {
+        // Darker top panel
+        JPanel panel = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                // Dark background
+                Color bgColor = new Color(8, 10, 12, 220);
+                g2d.setColor(bgColor);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+                
+                // Subtle border
+                BufferedImage borderImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Border/panel-border-000.png");
+                if (borderImg != null) {
+                    g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.2f));
+                    PixelArtUI.drawNineSlice(g2d, borderImg, 0, 0, getWidth(), getHeight());
+                } else {
+                    g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.4f));
+                    g2d.setColor(UITheme.BORDER_NORMAL);
+                    g2d.setStroke(new BasicStroke(1f));
+                    g2d.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
+                }
                 g2d.dispose();
             }
         };
         panel.setOpaque(false);
         panel.setBorder(new EmptyBorder(10, 10, 10, 10));
 
-        JLabel titleLabel = new JLabel("WORLD " + worldId + " - BATTLE", SwingConstants.CENTER);
-        titleLabel.setFont(UITheme.FONT_SUBTITLE);
-        titleLabel.setForeground(UITheme.PRIMARY_GREEN);
+        JLabel titleLabel = createReadableLabel("WORLD " + worldId + " - BATTLE", UITheme.FONT_SUBTITLE, new Color(UITheme.PRIMARY_GREEN.getRed(), UITheme.PRIMARY_GREEN.getGreen(), UITheme.PRIMARY_GREEN.getBlue(), 180), SwingConstants.CENTER);
 
         battleTurnLabel = new JLabel("Preparing...", SwingConstants.CENTER);
         battleTurnLabel.setFont(UITheme.FONT_HEADER);
-        battleTurnLabel.setForeground(UITheme.PRIMARY_WHITE);
+        battleTurnLabel.setForeground(new Color(UITheme.PRIMARY_ORANGE.getRed(), UITheme.PRIMARY_ORANGE.getGreen(), UITheme.PRIMARY_ORANGE.getBlue(), 200));
 
         battleWaveLabel = new JLabel("", SwingConstants.CENTER);
         battleWaveLabel.setFont(UITheme.FONT_SMALL);
-        battleWaveLabel.setForeground(UITheme.PRIMARY_GREEN);
+        battleWaveLabel.setForeground(new Color(UITheme.PRIMARY_GREEN.getRed(), UITheme.PRIMARY_GREEN.getGreen(), UITheme.PRIMARY_GREEN.getBlue(), 160));
 
         panel.add(titleLabel, BorderLayout.NORTH);
         panel.add(battleTurnLabel, BorderLayout.CENTER);
@@ -1316,79 +2114,78 @@ public class UnifiedGameUI extends JFrame {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setOpaque(false);
 
+        // Darker player panel
         battlePlayerPanel = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2d = (Graphics2D) g.create();
                 g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-                g2d.setColor(UITheme.BG_PLAYER);
+                // Dark background
+                Color bgColor = new Color(12, 15, 18, 200);
+                g2d.setColor(bgColor);
                 g2d.fillRect(0, 0, getWidth(), getHeight());
                 
-                // Use Panel asset (includes background and border)
-                BufferedImage panelImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Panel/panel-000.png");
-                if (panelImg != null) {
-                    PixelArtUI.drawNineSlice(g2d, panelImg, 0, 0, getWidth(), getHeight());
+                // Subtle border
+                BufferedImage borderImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Border/panel-border-000.png");
+                if (borderImg != null) {
+                    g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.2f));
+                    PixelArtUI.drawNineSlice(g2d, borderImg, 0, 0, getWidth(), getHeight());
                 } else {
-                    // Fallback
-                    BufferedImage borderImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Border/panel-border-000.png");
-                    if (borderImg != null) {
-                        PixelArtUI.drawNineSlice(g2d, borderImg, 0, 0, getWidth(), getHeight());
-                    } else {
-                        g2d.setColor(UITheme.BORDER_NORMAL);
-                        g2d.setStroke(new BasicStroke(2f));
-                        g2d.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
-                    }
+                    g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.4f));
+                    g2d.setColor(UITheme.BORDER_NORMAL);
+                    g2d.setStroke(new BasicStroke(1f));
+                    g2d.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
                 }
                 g2d.dispose();
             }
         };
         battlePlayerPanel.setLayout(new BoxLayout(battlePlayerPanel, BoxLayout.Y_AXIS));
         battlePlayerPanel.setOpaque(false);
-        battlePlayerPanel.setBorder(UITheme.createTitledBorder("YOUR TEAM", UITheme.PRIMARY_GREEN, UITheme.BORDER_NORMAL));
+        battlePlayerPanel.setBorder(UITheme.createTitledBorder("YOUR TEAM", new Color(UITheme.PRIMARY_GREEN.getRed(), UITheme.PRIMARY_GREEN.getGreen(), UITheme.PRIMARY_GREEN.getBlue(), 180), new Color(UITheme.BORDER_NORMAL.getRed(), UITheme.BORDER_NORMAL.getGreen(), UITheme.BORDER_NORMAL.getBlue(), 100)));
 
+        // Darker battle log
         battleLog = new JTextArea();
         battleLog.setFont(UITheme.FONT_LOG);
         battleLog.setEditable(false);
         battleLog.setLineWrap(true);
         battleLog.setWrapStyleWord(true);
-        // Dark but readable background with good text contrast
-        battleLog.setBackground(new Color(15, 20, 25));
-        battleLog.setForeground(UITheme.LOG_TEXT);
+        // Dark background
+        battleLog.setBackground(new Color(8, 10, 12));
+        battleLog.setForeground(new Color(UITheme.LOG_TEXT.getRed(), UITheme.LOG_TEXT.getGreen(), UITheme.LOG_TEXT.getBlue(), 200));
         battleLog.setOpaque(true);
         JScrollPane logScroll = new JScrollPane(battleLog);
         logScroll.setPreferredSize(new Dimension(400, 400));
 
+        // Darker enemy panel
         battleEnemyPanel = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2d = (Graphics2D) g.create();
                 g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-                g2d.setColor(UITheme.BG_ENEMY);
+                // Dark background
+                Color bgColor = new Color(18, 12, 15, 200);
+                g2d.setColor(bgColor);
                 g2d.fillRect(0, 0, getWidth(), getHeight());
                 
-                // Use Panel asset (includes background and border)
-                BufferedImage panelImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Panel/panel-000.png");
-                if (panelImg != null) {
-                    PixelArtUI.drawNineSlice(g2d, panelImg, 0, 0, getWidth(), getHeight());
+                // Subtle border
+                BufferedImage borderImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Border/panel-border-000.png");
+                if (borderImg != null) {
+                    g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.2f));
+                    PixelArtUI.drawNineSlice(g2d, borderImg, 0, 0, getWidth(), getHeight());
                 } else {
-                    // Fallback
-                    BufferedImage borderImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Border/panel-border-000.png");
-                    if (borderImg != null) {
-                        PixelArtUI.drawNineSlice(g2d, borderImg, 0, 0, getWidth(), getHeight());
-                    } else {
-                        g2d.setColor(UITheme.BORDER_NORMAL);
-                        g2d.setStroke(new BasicStroke(2f));
-                        g2d.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
-                    }
+                    g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.4f));
+                    g2d.setColor(UITheme.BORDER_NORMAL);
+                    g2d.setStroke(new BasicStroke(1f));
+                    g2d.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
                 }
                 g2d.dispose();
             }
         };
         battleEnemyPanel.setLayout(new BoxLayout(battleEnemyPanel, BoxLayout.Y_AXIS));
         battleEnemyPanel.setOpaque(false);
-        battleEnemyPanel.setBorder(UITheme.createTitledBorder("ENEMIES", UITheme.PRIMARY_GREEN, UITheme.BORDER_NORMAL));
+        battleEnemyPanel.setBorder(UITheme.createTitledBorder("ENEMIES", new Color(UITheme.PRIMARY_RED.getRed(), UITheme.PRIMARY_RED.getGreen(), UITheme.PRIMARY_RED.getBlue(), 180), new Color(UITheme.BORDER_NORMAL.getRed(), UITheme.BORDER_NORMAL.getGreen(), UITheme.BORDER_NORMAL.getBlue(), 100)));
 
         buildBattleCharacterPanels();
 
@@ -1400,18 +2197,29 @@ public class UnifiedGameUI extends JFrame {
     }
 
     private JPanel createBattleBottomPanel() {
-        // Simple panel with palette colors
+        // Darker bottom panel
         JPanel panel = new JPanel(new BorderLayout()) {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2d = (Graphics2D) g.create();
                 g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2d.setColor(UITheme.BG_PANEL);
-                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-                g2d.setColor(UITheme.BORDER_NORMAL);
-                g2d.setStroke(new BasicStroke(2f));
-                g2d.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 8, 8);
+                // Dark background
+                Color bgColor = new Color(10, 12, 15, 220);
+                g2d.setColor(bgColor);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+                
+                // Subtle border
+                BufferedImage borderImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Border/panel-border-000.png");
+                if (borderImg != null) {
+                    g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.2f));
+                    PixelArtUI.drawNineSlice(g2d, borderImg, 0, 0, getWidth(), getHeight());
+                } else {
+                    g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.4f));
+                    g2d.setColor(UITheme.BORDER_NORMAL);
+                    g2d.setStroke(new BasicStroke(1f));
+                    g2d.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
+                }
                 g2d.dispose();
             }
         };
@@ -1420,11 +2228,10 @@ public class UnifiedGameUI extends JFrame {
 
         battleInstructionLabel = new JLabel("Select a skill", SwingConstants.CENTER);
         battleInstructionLabel.setFont(UITheme.FONT_BUTTON_SMALL);
-        battleInstructionLabel.setForeground(UITheme.PRIMARY_ORANGE);
+        battleInstructionLabel.setForeground(new Color(UITheme.PRIMARY_ORANGE.getRed(), UITheme.PRIMARY_ORANGE.getGreen(), UITheme.PRIMARY_ORANGE.getBlue(), 200));
 
         battleSkillPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
-        battleSkillPanel.setBackground(new Color(30, 30, 50));
-        battleSkillPanel.setBorder(UITheme.createCyanBorder(2));
+        battleSkillPanel.setOpaque(false);
 
         panel.add(battleInstructionLabel, BorderLayout.NORTH);
         panel.add(battleSkillPanel, BorderLayout.CENTER);
@@ -1491,22 +2298,24 @@ public class UnifiedGameUI extends JFrame {
         }
     }
 
-    private static class PausePanel extends JPanel {
-        private float alpha = 0f;
+    private class PausePanel extends JPanel {
+        private float overlayAlpha = 0f;
         private javax.swing.Timer animation;
 
         PausePanel() {
             setOpaque(false);
-            setBorder(new EmptyBorder(30, 40, 30, 40));
-            setLayout(new GridBagLayout());
+            setBackground(new Color(0, 0, 0, 0)); // Fully transparent background
+            setLayout(new BorderLayout());
             startAnimation();
         }
 
         private void startAnimation() {
+            // Start with a small initial alpha to avoid white flash
+            overlayAlpha = 0.01f;
             animation = new javax.swing.Timer(16, e -> {
-                alpha = Math.min(1f, alpha + 0.1f);
+                overlayAlpha = Math.min(0.95f, overlayAlpha + 0.05f); // Almost black (95% opacity)
                 repaint();
-                if (alpha >= 1f) {
+                if (overlayAlpha >= 0.95f) {
                     animation.stop();
                 }
             });
@@ -1515,43 +2324,33 @@ public class UnifiedGameUI extends JFrame {
 
         @Override
         protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
+            // Don't call super.paintComponent to avoid default background painting
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             
-            // Dark background with fade
-            float panelAlpha = 0.4f + 0.5f * alpha;
-            Color bgColor = new Color(UITheme.BG_PANEL.getRed(), UITheme.BG_PANEL.getGreen(), UITheme.BG_PANEL.getBlue(), (int)(255 * panelAlpha));
-            g2.setColor(bgColor);
+            // Transparent black overlay - battle barely visible (no white flash)
+            Color overlayColor = new Color(0, 0, 0, (int)(255 * overlayAlpha));
+            g2.setColor(overlayColor);
             g2.fillRect(0, 0, getWidth(), getHeight());
             
-            // Use Panel asset with fade
-            BufferedImage panelImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Panel/panel-000.png");
-            if (panelImg != null) {
-                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
-                PixelArtUI.drawNineSlice(g2, panelImg, 0, 0, getWidth(), getHeight());
-            } else {
-                // Fallback: border with fade
-                BufferedImage borderImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Border/panel-border-000.png");
-                if (borderImg != null) {
-                    g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
-                    PixelArtUI.drawNineSlice(g2, borderImg, 0, 0, getWidth(), getHeight());
-                } else {
-                    Color borderColor = new Color(UITheme.BORDER_NORMAL.getRed(), UITheme.BORDER_NORMAL.getGreen(), UITheme.BORDER_NORMAL.getBlue(), (int)(255 * alpha));
-                    g2.setColor(borderColor);
-                    g2.setStroke(new BasicStroke(2f));
-                    g2.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
-                }
-            }
+            // Draw game title in top left
+            Font titleFont = new Font(Font.SANS_SERIF, Font.BOLD, 32);
+            g2.setFont(titleFont);
+            float titleAlpha = Math.min(1f, overlayAlpha * 1.2f);
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, titleAlpha));
+            g2.setColor(UITheme.PRIMARY_WHITE);
+            g2.drawString("DEFENDERS OF SOLARA", 20, 40);
             
             g2.dispose();
         }
         
         @Override
         protected void paintChildren(Graphics g) {
-            // Fade in children (buttons and text) along with the background
+            // Buttons fade in
             Graphics2D g2 = (Graphics2D) g.create();
-            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            float buttonAlpha = Math.min(1f, overlayAlpha * 1.2f); // Buttons appear slightly faster
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, buttonAlpha));
             super.paintChildren(g2);
             g2.dispose();
         }
@@ -1717,32 +2516,31 @@ public class UnifiedGameUI extends JFrame {
                 Graphics2D g2d = (Graphics2D) g.create();
                 g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
                 
-                // Dark background
-                Color bg = isPlayer ? UITheme.BG_PLAYER : UITheme.BG_ENEMY;
-                g2d.setColor(bg);
+                // Much darker background
+                Color bgColor = new Color(8, 10, 12, 200);
+                g2d.setColor(bgColor);
                 g2d.fillRect(0, 0, getWidth(), getHeight());
                 
-                // Use Panel asset (includes background and border)
-                BufferedImage panelImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Panel/panel-000.png");
-                if (panelImg != null) {
-                    PixelArtUI.drawNineSlice(g2d, panelImg, 0, 0, getWidth(), getHeight());
+                // Subtle border
+                BufferedImage borderImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Border/panel-border-000.png");
+                if (borderImg != null) {
+                    g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.15f));
+                    PixelArtUI.drawNineSlice(g2d, borderImg, 0, 0, getWidth(), getHeight());
                 } else {
-                    // Fallback
-                    BufferedImage borderImg = PixelArtUI.loadImage("/kennyresources/PNG/Default/Border/panel-border-000.png");
-                    if (borderImg != null) {
-                        PixelArtUI.drawNineSlice(g2d, borderImg, 0, 0, getWidth(), getHeight());
-                    } else {
-                        g2d.setColor(UITheme.BORDER_NORMAL);
-                        g2d.setStroke(new BasicStroke(2f));
-                        g2d.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
-                    }
+                    g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
+                    g2d.setColor(UITheme.BORDER_NORMAL);
+                    g2d.setStroke(new BasicStroke(1f));
+                    g2d.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
                 }
                 g2d.dispose();
             }
         };
         card.setOpaque(false);
-        card.setPreferredSize(UITheme.CHARACTER_CARD);
-        card.setMaximumSize(UITheme.CHARACTER_CARD);
+        // Ensure card has proper size to show all bars
+        Dimension cardSize = new Dimension(Math.max(250, UITheme.CHARACTER_CARD.width), Math.max(120, UITheme.CHARACTER_CARD.height));
+        card.setPreferredSize(cardSize);
+        card.setMinimumSize(cardSize);
+        card.setMaximumSize(new Dimension(cardSize.width, Integer.MAX_VALUE)); // Allow vertical expansion
 
         JLabel nameLabel = new JLabel(c.name);
         nameLabel.setFont(UITheme.FONT_CARD_NAME);
@@ -1754,15 +2552,20 @@ public class UnifiedGameUI extends JFrame {
         hpBar.setStringPainted(true);
         hpBar.setString(c.currentHP + " / " + c.maxHP);
         hpBar.setForeground(UITheme.HP_GREEN);
+        hpBar.setPreferredSize(new Dimension(0, 25)); // Ensure proper height
+        hpBar.setMinimumSize(new Dimension(0, 25));
 
         JProgressBar manaBar = new JProgressBar(0, c.maxMana);
         manaBar.setValue(c.currentMana);
         manaBar.setStringPainted(true);
         manaBar.setString(c.currentMana + " / " + c.maxMana);
         manaBar.setForeground(UITheme.MANA_BLUE);
+        manaBar.setPreferredSize(new Dimension(0, 25)); // Ensure proper height
+        manaBar.setMinimumSize(new Dimension(0, 25));
 
         JPanel barsPanel = new JPanel(new GridLayout(2, 1, 2, 2));
         barsPanel.setOpaque(false);
+        barsPanel.setPreferredSize(new Dimension(0, 60)); // Ensure bars have space
         barsPanel.add(hpBar);
         barsPanel.add(manaBar);
 
@@ -1831,12 +2634,17 @@ public class UnifiedGameUI extends JFrame {
         }
 
         Character current = playerTeam[currentPlayerIndex];
+        if (battleTurnLabel != null) {
         battleTurnLabel.setText("PLAYER TURN: " + current.name);
-        battleInstructionLabel.setText("Select a skill for " + current.name);
-        battleInstructionLabel.setForeground(UITheme.PRIMARY_ORANGE);
+        }
+        battleInstructionLabel.setText("SELECT AN ATTACK");
+        battleInstructionLabel.setForeground(new Color(100, 150, 255)); // Light blue
 
-        loadBattleSkillButtons(current);
         updateBattleBars();
+        updateCharacterDetails();
+        updateEnemyDetails();
+        buildCharacterList();
+        updateAttackDetails(); // This will initialize battleSkillPanel and load buttons
 
         selectedSkill = null;
         waitingForTarget = false;
@@ -1844,29 +2652,80 @@ public class UnifiedGameUI extends JFrame {
     }
 
     private void loadBattleSkillButtons(Character character) {
+        if (battleSkillPanel == null) return;
         battleSkillPanel.removeAll();
 
         for (Skill skill : character.skills) {
-            JButton skillBtn = new JButton(skill.getInfo());
-            skillBtn.setFont(UITheme.FONT_SKILL);
-            skillBtn.setForeground(UITheme.PRIMARY_ORANGE);
-            skillBtn.setBackground(new Color(UITheme.BG_BUTTON.getRed(), UITheme.BG_BUTTON.getGreen(), UITheme.BG_BUTTON.getBlue(), 220));
-            skillBtn.setOpaque(true);
-            skillBtn.setFocusPainted(false);
-            skillBtn.setBorder(BorderFactory.createLineBorder(UITheme.BORDER_NORMAL, 2));
-            skillBtn.setPreferredSize(UITheme.SKILL_BUTTON);
-
-            boolean canUse = skill.canUse(character);
-            skillBtn.setEnabled(canUse);
-
-            if (!canUse) {
-                skillBtn.setForeground(new Color(UITheme.TEXT_GRAY.getRed(), UITheme.TEXT_GRAY.getGreen(), UITheme.TEXT_GRAY.getBlue(), 150));
-                skillBtn.setBackground(new Color(UITheme.BG_BUTTON.getRed() - 10, UITheme.BG_BUTTON.getGreen() - 10, UITheme.BG_BUTTON.getBlue() - 10, 150));
-                skillBtn.setBorder(BorderFactory.createLineBorder(new Color(UITheme.BORDER_NORMAL.getRed(), UITheme.BORDER_NORMAL.getGreen(), UITheme.BORDER_NORMAL.getBlue(), 100), 2));
-            }
-
-            skillBtn.addActionListener(e -> onBattleSkillSelected(skill, character));
-            battleSkillPanel.add(skillBtn);
+            // Simple clickable skill panels for bottom right
+            final Skill skillRef = skill;
+            final boolean canUse = skill.canUse(character);
+            
+            JPanel skillPanel = new JPanel(new BorderLayout(5, 2)) {
+                @Override
+                protected void paintComponent(Graphics g) {
+                    super.paintComponent(g);
+                    Boolean hovered = (Boolean) getClientProperty("isHovered");
+                    if (hovered != null && hovered && canUse) {
+                        Graphics2D g2d = (Graphics2D) g.create();
+                        g2d.setColor(new Color(UITheme.PRIMARY_GREEN.getRed(), UITheme.PRIMARY_GREEN.getGreen(), UITheme.PRIMARY_GREEN.getBlue(), 30));
+                        g2d.fillRect(0, 0, getWidth(), getHeight());
+                        g2d.dispose();
+                    }
+                }
+            };
+            skillPanel.setOpaque(false);
+            skillPanel.setCursor(canUse ? Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) : Cursor.getDefaultCursor());
+            skillPanel.setPreferredSize(new Dimension(0, 45));
+            skillPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
+            
+            // Skill name
+            JLabel nameLabel = new JLabel(skill.getName());
+            nameLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 13));
+            nameLabel.setForeground(canUse ? UITheme.PRIMARY_WHITE : new Color(UITheme.TEXT_GRAY.getRed(), UITheme.TEXT_GRAY.getGreen(), UITheme.TEXT_GRAY.getBlue(), 150));
+            
+            // Skill description
+            JLabel descLabel = new JLabel(skill.getDescription());
+            descLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 11));
+            descLabel.setForeground(canUse ? new Color(UITheme.PRIMARY_WHITE.getRed(), UITheme.PRIMARY_WHITE.getGreen(), UITheme.PRIMARY_WHITE.getBlue(), 180) : new Color(UITheme.TEXT_GRAY.getRed(), UITheme.TEXT_GRAY.getGreen(), UITheme.TEXT_GRAY.getBlue(), 120));
+            
+            JPanel textPanel = new JPanel();
+            textPanel.setLayout(new BoxLayout(textPanel, BoxLayout.Y_AXIS));
+            textPanel.setOpaque(false);
+            textPanel.add(nameLabel);
+            textPanel.add(descLabel);
+            
+            skillPanel.add(textPanel, BorderLayout.CENTER);
+            
+            // Mouse listeners for click and hover
+            skillPanel.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    if (canUse) {
+                        onBattleSkillSelected(skillRef, character);
+                        updateAttackDetails();
+                    }
+                }
+                
+                @Override
+                public void mouseEntered(MouseEvent e) {
+                    if (canUse) {
+                        skillPanel.putClientProperty("isHovered", true);
+                        skillPanel.repaint();
+                    }
+                }
+                
+                @Override
+                public void mouseExited(MouseEvent e) {
+                    skillPanel.putClientProperty("isHovered", false);
+                    skillPanel.repaint();
+                }
+            });
+            
+            // Initialize hover state
+            skillPanel.putClientProperty("isHovered", false);
+            
+            battleSkillPanel.add(skillPanel);
+            battleSkillPanel.add(Box.createVerticalStrut(3));
         }
 
         battleSkillPanel.revalidate();
@@ -2024,11 +2883,11 @@ public class UnifiedGameUI extends JFrame {
                     executeSkillWithLog(skill, enemy, new Character[]{enemy});
                     break;
                 default:
-                    Character target = getRandomAlive(playerTeam);
-                    if (target != null) {
+            Character target = getRandomAlive(playerTeam);
+            if (target != null) {
                         appendBattleLog(enemy.name + " uses " + skill.getName() + " on " + target.name + "!");
                         executeSkillWithLog(skill, enemy, new Character[]{target});
-                    }
+            }
                     break;
             }
             updateBattleBars();
@@ -2126,48 +2985,110 @@ public class UnifiedGameUI extends JFrame {
         JDialog dialog = new JDialog(this, "Pause", true);
         dialog.setUndecorated(true);
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        dialog.setSize(getWidth(), getHeight());
+        dialog.setLocationRelativeTo(this);
+        dialog.setBackground(new Color(0, 0, 0, 0)); // Fully transparent dialog background
+        dialog.getRootPane().setOpaque(false); // Make root pane transparent
 
         PausePanel glassPanel = new PausePanel();
+        
+        // Center panel for buttons
+        JPanel buttonPanel = new JPanel(new GridBagLayout());
+        buttonPanel.setOpaque(false);
+        buttonPanel.setBackground(new Color(0, 0, 0, 0)); // Fully transparent
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.gridx = 0;
-        gbc.insets = new Insets(10, 0, 10, 0);
+        gbc.insets = new Insets(15, 0, 15, 0);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        JLabel pauseLabel = new JLabel("PAUSED", SwingConstants.CENTER);
-        pauseLabel.setFont(UITheme.FONT_SUBTITLE);
-        pauseLabel.setForeground(UITheme.PRIMARY_GREEN);
+        // Create menu-style buttons with hover underline (no panels, just text boxes)
+        PauseMenuButton resumeBtn = new PauseMenuButton("RESUME", dialog, () -> dialog.dispose());
         gbc.gridy = 0;
-        glassPanel.add(pauseLabel, gbc);
+        buttonPanel.add(resumeBtn, gbc);
 
-        JButton resumeBtn = UITheme.createButton("RESUME");
-        resumeBtn.setFont(UITheme.FONT_BUTTON);
-        resumeBtn.addActionListener(e -> dialog.dispose());
-        gbc.gridy = 1;
-        glassPanel.add(resumeBtn, gbc);
-
-        JButton optionsBtn = UITheme.createButton("OPTIONS");
-        optionsBtn.setFont(UITheme.FONT_BUTTON);
-        optionsBtn.addActionListener(e -> {
+        PauseMenuButton optionsBtn = new PauseMenuButton("OPTIONS", dialog, () -> {
             dialog.dispose();
             showScreen(SCREEN_SETTINGS);
         });
-        gbc.gridy = 2;
-        glassPanel.add(optionsBtn, gbc);
+        gbc.gridy = 1;
+        buttonPanel.add(optionsBtn, gbc);
 
-        JButton exitMenuBtn = UITheme.createButton("EXIT TO MENU");
-        exitMenuBtn.setFont(UITheme.FONT_BUTTON);
-        exitMenuBtn.addActionListener(e -> {
+        PauseMenuButton exitMenuBtn = new PauseMenuButton("EXIT TO MENU", dialog, () -> {
             dialog.dispose();
             returnToMainMenu();
         });
-        gbc.gridy = 3;
-        glassPanel.add(exitMenuBtn, gbc);
+        gbc.gridy = 2;
+        buttonPanel.add(exitMenuBtn, gbc);
 
+        glassPanel.add(buttonPanel, BorderLayout.CENTER);
         dialog.setContentPane(glassPanel);
-        dialog.pack();
-        dialog.setLocationRelativeTo(this);
+        dialog.getContentPane().setBackground(new Color(0, 0, 0, 0)); // Ensure content pane is transparent
         dialog.setResizable(false);
         dialog.setVisible(true);
+    }
+    
+    private static class PauseMenuButton extends JPanel {
+        private final String text;
+        private boolean isHovered = false;
+        
+        public PauseMenuButton(String text, JDialog parent, Runnable action) {
+            this.text = text;
+            setOpaque(false); // No background panel
+            setPreferredSize(new Dimension(300, 40));
+            setBorder(null); // No border
+            
+            addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    action.run();
+                }
+                
+                @Override
+                public void mouseEntered(MouseEvent e) {
+                    isHovered = true;
+                    setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                    repaint();
+                }
+                
+                @Override
+                public void mouseExited(MouseEvent e) {
+                    isHovered = false;
+                    setCursor(Cursor.getDefaultCursor());
+                    repaint();
+                }
+            });
+        }
+        
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            Graphics2D g2d = (Graphics2D) g.create();
+            g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            
+            // Simple text button (no panel background)
+            Font buttonFont = new Font(Font.SANS_SERIF, Font.PLAIN, 26);
+            g2d.setFont(buttonFont.deriveFont(isHovered ? Font.BOLD : Font.PLAIN));
+            FontMetrics fm = g2d.getFontMetrics();
+            int textWidth = fm.stringWidth(text);
+            int tx = (getWidth() - textWidth) / 2;
+            int ty = getHeight() / 2 + fm.getAscent() / 2 - 5;
+            
+            // Text color changes on hover
+            Color textColor = isHovered ? UITheme.PRIMARY_GREEN : UITheme.PRIMARY_WHITE;
+            g2d.setColor(textColor);
+            g2d.drawString(text, tx, ty);
+            
+            // Draw underline only when hovered
+            if (isHovered) {
+                int underlineY = ty + fm.getDescent() + 4;
+                int underlineX = tx;
+                g2d.setStroke(new BasicStroke(2f));
+                g2d.setColor(textColor);
+                g2d.drawLine(underlineX, underlineY, underlineX + textWidth, underlineY);
+            }
+            
+            g2d.dispose();
+        }
     }
 
     private void refreshWorldSelection() {
@@ -2275,6 +3196,7 @@ public class UnifiedGameUI extends JFrame {
     private void updateBattleBars() {
         updateBarsForPanel(battlePlayerPanel);
         updateBarsForPanel(battleEnemyPanel);
+        updateEnemyDetails(); // Update enemy stats panel
     }
 
     private void updateBarsForPanel(JPanel panel) {

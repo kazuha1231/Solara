@@ -123,10 +123,53 @@ public class UITheme {
     }
 
     public static JLabel createTitle(String text) {
-        JLabel lbl = new JLabel(text, SwingConstants.CENTER);
-        lbl.setFont(FONT_TITLE);
-        lbl.setForeground(PRIMARY_GREEN); // Light green like "Quest" in reference
-        return lbl;
+        // Create a beautiful title with divider fade underline
+        return new JLabel(text, SwingConstants.CENTER) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+                g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                g2d.setFont(getFont());
+                
+                FontMetrics fm = g2d.getFontMetrics();
+                int textWidth = fm.stringWidth(getText());
+                int x = (getWidth() - textWidth) / 2;
+                int y = (getHeight() + fm.getAscent() - fm.getDescent()) / 2;
+                
+                // Draw text shadow for depth
+                g2d.setColor(new Color(0, 0, 0, 200));
+                g2d.drawString(getText(), x + 2, y + 2);
+                g2d.setColor(new Color(0, 0, 0, 120));
+                g2d.drawString(getText(), x + 1, y + 1);
+                
+                // Draw main text with slight glow
+                g2d.setColor(new Color(getForeground().getRed(), getForeground().getGreen(), getForeground().getBlue(), 200));
+                g2d.drawString(getText(), x, y - 1);
+                g2d.setColor(getForeground());
+                g2d.drawString(getText(), x, y);
+                
+                // Draw beautiful divider fade underline
+                BufferedImage dividerFade = PixelArtUI.loadImage("/kennyresources/PNG/Default/Divider Fade/divider-fade-002.png");
+                if (dividerFade == null) {
+                    dividerFade = PixelArtUI.loadImage("/kennyresources/PNG/Default/Divider Fade/divider-fade-000.png");
+                }
+                
+                if (dividerFade != null) {
+                    int underlineY = y + fm.getDescent() + 10;
+                    int underlineWidth = Math.max(textWidth + 50, 150);
+                    int underlineX = (getWidth() - underlineWidth) / 2;
+                    int underlineHeight = Math.max(dividerFade.getHeight(), 6);
+                    
+                    g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.95f));
+                    PixelArtUI.drawNineSlice(g2d, dividerFade, underlineX, underlineY, underlineWidth, underlineHeight);
+                    g2d.setComposite(AlphaComposite.SrcOver);
+                }
+                
+                g2d.dispose();
+            }
+        };
     }
 
     public static JButton createButton(String text) {
