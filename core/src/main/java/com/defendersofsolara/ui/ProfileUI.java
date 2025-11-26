@@ -60,7 +60,7 @@ class ProfileUI extends JPanel {
         gbc.insets = new Insets(0, 80, 20, 80);
         add(slotsPanel, gbc);
 
-        JButton backBtn = UITheme.createButton("BACK");
+        JButton backBtn = UITheme.createSmallButton("BACK");
         backBtn.addActionListener(e -> parent.goToMainMenu());
         gbc.gridy = 3;
         gbc.insets = new Insets(10, 10, 40, 10);

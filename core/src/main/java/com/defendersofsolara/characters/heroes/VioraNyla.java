@@ -15,6 +15,7 @@ public class VioraNyla extends Character {
     public void initializeSkills() {
         skills.add(new AttackSkill());
         skills.add(new HoloFieldSkill());
+        skills.add(new TeamHealSkill());
         skills.add(new CodeBreakerUltimate());
     }
 }

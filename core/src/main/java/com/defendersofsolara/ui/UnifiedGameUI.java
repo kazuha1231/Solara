@@ -580,29 +580,51 @@ public class UnifiedGameUI extends JFrame {
     // ==================== CREDITS ====================
 
     private JPanel createCreditsMenu() {
-        JPanel panel = createBackgroundPanel();
+        JPanel panel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                
+                // Draw background with reduced opacity
+                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.4f));
+                paintBackground(g2d, getWidth(), getHeight());
+                
+                // Draw dark overlay for better text readability
+                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.85f));
+                g2d.setColor(new Color(0, 0, 0, 200));
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+                
+                g2d.setComposite(AlphaComposite.SrcOver);
+            }
+        };
         panel.setLayout(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.gridx = 0;
 
         JLabel credits = new JLabel(
             "<html><center>" +
-                "<font size='6' color='#00FFFF'><b>DEFENDERS OF SOLARA</b></font><br><br>" +
-                "<font size='4' color='#00FFFF'>" +
-                "Group Leader:<br>John Warren Pansacala<br><br>" +
-                "Members:<br>" +
+                "<font size='8' color='#FFFFFF'><b>DEFENDERS OF SOLARA</b></font><br><br>" +
+                "<font size='5' color='#FFFFFF'>" +
+                "<b>Developer/Members:</b><br>" +
+                "John Warren Pansacala<br>" +
                 "Veinz Pius N. Escuzar<br>" +
                 "Denzel B. Valendez<br>" +
                 "Kim Kyle M. Paran<br>" +
                 "Rushaine A. Tura<br><br>" +
+                "<b>Credits:</b><br>" +
+                "Assets: Kenny Assets<br>" +
+                "Planet Assets: Deep-Fold source (Itch.io)<br>" +
+                "Background Menu: Gemini AI<br><br>" +
                 "Engine: Java Swing<br>" +
                 "Version: 1.0" +
                 "</font></center></html>"
         );
+        credits.setOpaque(false);
         gbc.gridy = 0;
         panel.add(credits, gbc);
 
-        JButton backBtn = UITheme.createButton("BACK");
+        JButton backBtn = UITheme.createSmallButton("BACK");
         backBtn.addActionListener(e -> returnToMainMenu());
         gbc.gridy = 1;
         gbc.insets = new Insets(30, 15, 15, 15);
@@ -656,7 +678,7 @@ public class UnifiedGameUI extends JFrame {
         gbc.gridy = 1;
         videoPanel.add(resolutionBox, gbc);
 
-        JButton applyVideoBtn = UITheme.createButton("APPLY VIDEO");
+        JButton applyVideoBtn = UITheme.createSmallButton("APPLY VIDEO");
         applyVideoBtn.addActionListener(e ->
             applySettings(fullscreenCheck.isSelected(), (String) resolutionBox.getSelectedItem())
         );
@@ -941,7 +963,9 @@ public class UnifiedGameUI extends JFrame {
             worldsPanel.add(worldCard);
         }
 
-        JButton backBtn = UITheme.createButton("BACK TO MENU");
+        JButton backBtn = UITheme.createSmallButton("BACK TO MENU");
+        backBtn.setPreferredSize(new Dimension(180, 40));
+        backBtn.setMinimumSize(new Dimension(180, 40));
         backBtn.addActionListener(e -> returnToMainMenu());
 
         JPanel bottomPanel = new JPanel();

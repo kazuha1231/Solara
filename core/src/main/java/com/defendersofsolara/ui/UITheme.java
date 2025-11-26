@@ -232,21 +232,21 @@ public class UITheme {
         btn.setFont(FONT_BUTTON_SMALL);
         btn.setContentAreaFilled(false);
         btn.setOpaque(false);
-        btn.setForeground(PRIMARY_ORANGE);
+        btn.setForeground(PRIMARY_WHITE);
         btn.setFocusPainted(false);
-        btn.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, new Color(120, 150, 190, 180)));
+        btn.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, new Color(200, 200, 200, 180)));
         btn.setPreferredSize(BUTTON_SMALL);
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btn.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent e) {
                 btn.setForeground(PRIMARY_WHITE);
-                btn.setBorder(BorderFactory.createMatteBorder(0, 0, 3, 0, new Color(240, 150, 80)));
+                btn.setBorder(BorderFactory.createMatteBorder(0, 0, 3, 0, new Color(255, 255, 255, 255)));
             }
             @Override
             public void mouseExited(MouseEvent e) {
-                btn.setForeground(PRIMARY_ORANGE);
-                btn.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, new Color(220, 120, 60, 180)));
+                btn.setForeground(PRIMARY_WHITE);
+                btn.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, new Color(200, 200, 200, 180)));
             }
         });
         return btn;
