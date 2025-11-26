@@ -28,8 +28,8 @@ public class PlayerProgress implements Serializable {
     private long sessionStartTime = 0; // When current session started
     private long lastSaveTime = 0; // Last save timestamp
 
-    // Level requirements per world (index 0 -> world 1)
-    private static final int[] WORLD_LEVEL_REQ = {1, 3, 6, 9, 12};
+    // Level requirements per world (index 0 -> world 1) - balanced for max level 30
+    private static final int[] WORLD_LEVEL_REQ = {1, 3, 6, 10, 15};
 
     public int getPlayerLevel() {
         return playerLevel;
@@ -45,13 +45,13 @@ public class PlayerProgress implements Serializable {
 
     public void addExp(int amount) {
         currentExp += Math.max(0, amount);
-        while (currentExp >= expToNext && playerLevel < 50) {
+        while (currentExp >= expToNext && playerLevel < 30) {
             currentExp -= expToNext;
             playerLevel++;
             expToNext = Math.round(expToNext * 1.25f) + 50;
         }
-        if (playerLevel >= 50) {
-            playerLevel = 50;
+        if (playerLevel >= 30) {
+            playerLevel = 30;
             currentExp = 0;
         }
     }

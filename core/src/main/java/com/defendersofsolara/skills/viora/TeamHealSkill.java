@@ -18,10 +18,10 @@ public class TeamHealSkill extends Skill {
         user.currentMana -= manaCost;
         
         // Calculate heal percentage: 20% base, scales up to 50% based on level
-        // At level 1: 20%, at level 50: 50%
+        // At level 1: 20%, at level 30: 50%
         double basePercent = 0.20; // 20%
         double maxPercent = 0.50; // 50%
-        double percentPerLevel = (maxPercent - basePercent) / 49.0; // Scale from level 1 to 50
+        double percentPerLevel = (maxPercent - basePercent) / 29.0; // Scale from level 1 to 30
         double healPercent = basePercent + (percentPerLevel * Math.max(0, user.level - 1));
         healPercent = Math.min(healPercent, maxPercent); // Cap at 50%
         

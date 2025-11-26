@@ -24,7 +24,7 @@ public abstract class Character implements Serializable {
         this.baseDefense = currentDefense = defense;
         this.baseSpeed = currentSpeed = speed;
         this.level = 1;
-        this.maxLevel = 50;
+        this.maxLevel = 30;
         this.skills = new ArrayList<>();
         this.activeEffects = new ArrayList<>();
         this.isAlive = true;
@@ -58,10 +58,10 @@ public abstract class Character implements Serializable {
     protected void levelUpStats() {
         if (level >= maxLevel) return;
         level++;
-        maxHP += 40;
-        maxMana += 30;
-        baseAttack += 6;
-        baseDefense += 4;
+        maxHP += 55;  // Increased from 40 - heroes get more HP per level
+        maxMana += 40; // Increased from 30 - heroes get more mana per level
+        baseAttack += 9; // Increased from 6 - heroes get more attack per level
+        baseDefense += 7; // Increased from 4 - heroes get more defense per level
         baseSpeed += 1;
         currentHP = maxHP;
         currentMana = maxMana;

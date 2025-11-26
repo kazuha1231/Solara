@@ -74,9 +74,10 @@ public class UnifiedGameUI extends JFrame {
     private PlayerProgress playerProgress;
 
     // Balanced multipliers - normal difficulty, enemies killable but challenging in later worlds
+    // Enemies have high HP but low damage that scales with hero HP
     private static final double[] WORLD_HP_MULT = {1.0, 1.1, 1.2, 1.35, 1.5};
     private static final double[] WORLD_MANA_MULT = {1.0, 1.1, 1.2, 1.3, 1.4};
-    private static final double[] WORLD_ATK_MULT = {1.0, 1.1, 1.2, 1.3, 1.4};
+    private static final double[] WORLD_ATK_MULT = {1.0, 1.02, 1.04, 1.06, 1.08}; // Much lower attack scaling
     private static final double[] WORLD_DEF_MULT = {1.0, 1.05, 1.1, 1.15, 1.2};
     // Enemy levels now scale with player level (base + world offset)
     private static final int[] WORLD_ENEMY_LEVEL_OFFSET = {0, 1, 2, 3, 4};
@@ -941,7 +942,7 @@ public class UnifiedGameUI extends JFrame {
                 // Secret cheat: Click title to level up by 3 levels and unlock worlds
                 if (playerProgress != null) {
                     int currentLevel = playerProgress.getPlayerLevel();
-                    int targetLevel = Math.min(50, currentLevel + 3);
+                    int targetLevel = Math.min(30, currentLevel + 3);
                     
                     // Calculate EXP needed to reach target level
                     int expNeeded = 0;
@@ -974,6 +975,14 @@ public class UnifiedGameUI extends JFrame {
                             }
                         }
                     }
+                    
+                    // Unlock Zyra if World 2 is cleared (either through cheat or normal play)
+                    if (playerProgress.hasClearedWorld(2) && !playerProgress.isZyraUnlocked()) {
+                        playerProgress.unlockZyra();
+                    }
+                    
+                    // Save progress to persist Zyra unlock
+                    saveActiveProfile();
                     
                     // Refresh the world selection screen
                     refreshWorldSelection();
@@ -1552,7 +1561,7 @@ public class UnifiedGameUI extends JFrame {
         // Scale with player level instead of fixed levels
         int playerLevel = playerProgress != null ? playerProgress.getPlayerLevel() : 1;
         int levelOffset = WORLD_ENEMY_LEVEL_OFFSET[index];
-        int levelTarget = Math.min(50, Math.max(1, playerLevel + levelOffset + (waveNumber / 2)));
+        int levelTarget = Math.min(30, Math.max(1, playerLevel + levelOffset + (waveNumber / 2)));
         double difficulty = 1.0 + (waveNumber - 1) * 0.02; // Minimal difficulty scaling per wave
 
         if (pool.isEmpty()) {
@@ -1570,7 +1579,8 @@ public class UnifiedGameUI extends JFrame {
                     () -> new SavageSwipeSkill("Strike", 1.0)
                 );
                 minion.syncToLevel(levelTarget);
-                minion.applyStatMultiplier(difficulty, difficulty, difficulty, difficulty);
+                // HP, Mana, Defense scale with difficulty; Attack will be scaled to hero HP in applyEnemyScaling
+                minion.applyStatMultiplier(difficulty, difficulty, 1.0, difficulty);
                 enemies[i] = minion;
             }
         } else {
@@ -1594,7 +1604,7 @@ public class UnifiedGameUI extends JFrame {
             int playerLevel = playerProgress != null ? playerProgress.getPlayerLevel() : 1;
             int index = Math.min(worldId - 1, WORLD_ENEMY_LEVEL_OFFSET.length - 1);
             int levelOffset = WORLD_ENEMY_LEVEL_OFFSET[index];
-            int supporterLevel = Math.min(50, Math.max(1, playerLevel + levelOffset + 1));
+            int supporterLevel = Math.min(30, Math.max(1, playerLevel + levelOffset + 1));
             
             for (int i = 0; i < supporters; i++) {
                 MinionTemplate template = pool.get(random.nextInt(pool.size()));
@@ -1625,14 +1635,14 @@ public class UnifiedGameUI extends JFrame {
             () -> new SavageSwipeSkill("Obliterate", 1.35),
             () -> new VenomSplashSkill("Cataclysm Pulse", 0.75, 40, 3),
             () -> new SoulDrainSkill("Soul Rend", 1.1, 0.4),
-            () -> new AegisPulseSkill("Call of Dominion", 160)
+            () -> new AegisPulseSkill("Call of Dominion", 50)
         );
         // Boss level now scales with player level (will be adjusted in applyEnemyScaling)
         int playerLevel = playerProgress != null ? playerProgress.getPlayerLevel() : 1;
-        int bossLevel = Math.min(50, Math.max(1, playerLevel + 2));
+        int bossLevel = Math.min(30, Math.max(1, playerLevel + 2));
         boss.syncToLevel(bossLevel);
-        // Balanced base multipliers - bosses are tough but fair
-        boss.applyStatMultiplier(1.15, 1.1, 1.1, 1.05);
+        // Balanced base multipliers - HP and defense only (attack will be scaled to hero HP)
+        boss.applyStatMultiplier(1.15, 1.1, 1.0, 1.05);
         return boss;
     }
 
@@ -1655,7 +1665,7 @@ public class UnifiedGameUI extends JFrame {
             ),
             new MinionTemplate("Temporal Wisp", 320, 180, 38, 18, 40,
                 () -> new VenomSplashSkill("Temporal Shock", 0.5, 18, 2),
-                () -> new AegisPulseSkill("Serene Glow", 80)
+                () -> new AegisPulseSkill("Serene Glow", 40)
             )
         );
         pools.add(world1);
@@ -1667,7 +1677,7 @@ public class UnifiedGameUI extends JFrame {
             ),
             new MinionTemplate("Mire Shaman", 450, 220, 48, 24, 30,
                 () -> new VenomSplashSkill("Mire Surge", 0.6, 22, 2),
-                () -> new AegisPulseSkill("Mud Ward", 110)
+                () -> new AegisPulseSkill("Mud Ward", 45)
             ),
             new MinionTemplate("Wailing Husk", 520, 150, 58, 28, 28,
                 () -> new SavageSwipeSkill("Dirge Swipe", 1.1)
@@ -1682,7 +1692,7 @@ public class UnifiedGameUI extends JFrame {
             ),
             new MinionTemplate("Arc Warden", 570, 300, 68, 34, 34,
                 () -> new SoulDrainSkill("Arc Flay", 1.0, 0.35),
-                () -> new AegisPulseSkill("Shield Matrix", 140)
+                () -> new AegisPulseSkill("Shield Matrix", 50)
             ),
             new MinionTemplate("Skyblade", 600, 260, 74, 32, 46,
                 () -> new SavageSwipeSkill("Skyfall", 1.25)
@@ -1693,7 +1703,7 @@ public class UnifiedGameUI extends JFrame {
         List<MinionTemplate> world4 = List.of(
             new MinionTemplate("Elarion Sentinel", 780, 300, 90, 44, 38,
                 () -> new SavageSwipeSkill("Spear Barrage", 1.3),
-                () -> new AegisPulseSkill("Renewing Chant", 160)
+                () -> new AegisPulseSkill("Renewing Chant", 55)
             ),
             new MinionTemplate("Verdant Binder", 720, 360, 84, 40, 34,
                 () -> new VenomSplashSkill("Root Lash", 0.8, 30, 2),
@@ -1712,7 +1722,7 @@ public class UnifiedGameUI extends JFrame {
             ),
             new MinionTemplate("Void Priest", 880, 420, 98, 48, 40,
                 () -> new SoulDrainSkill("Void Siphon", 1.1, 0.45),
-                () -> new AegisPulseSkill("Rite of Night", 200)
+                () -> new AegisPulseSkill("Rite of Night", 60)
             ),
             new MinionTemplate("Night Harbinger", 940, 380, 110, 52, 46,
                 () -> new SavageSwipeSkill("Harbinger Edge", 1.5)
@@ -1740,8 +1750,19 @@ public class UnifiedGameUI extends JFrame {
         roster.add(new VioraNyla());
         roster.add(new YlonneKryx());
 
-        if (playerProgress != null && playerProgress.isZyraUnlocked()) {
-            roster.add(new ZyraKathun());
+        // Check if Zyra should be unlocked
+        if (playerProgress != null) {
+            // Unlock Zyra if World 2 is cleared (can enter World 3) or if already unlocked
+            if (playerProgress.canEnterWorld(3) && !playerProgress.isZyraUnlocked()) {
+                // World 3 is accessible, which means World 2 is cleared - unlock Zyra
+                playerProgress.unlockZyra();
+                saveActiveProfile(); // Save the unlock
+            }
+            
+            // Add Zyra if unlocked
+            if (playerProgress.isZyraUnlocked()) {
+                roster.add(new ZyraKathun());
+            }
         }
 
         int playerLevel = playerProgress != null ? playerProgress.getPlayerLevel() : 1;
@@ -1755,38 +1776,61 @@ public class UnifiedGameUI extends JFrame {
         int index = Math.max(0, Math.min(worldId - 1, WORLD_HP_MULT.length - 1));
         double hpMultiplier = WORLD_HP_MULT[index];
         double manaMultiplier = WORLD_MANA_MULT[index];
-        double attackMultiplier = WORLD_ATK_MULT[index];
         double defenseMultiplier = WORLD_DEF_MULT[index];
         int levelOffset = WORLD_ENEMY_LEVEL_OFFSET[index];
         
+        // Calculate average hero HP to scale enemy damage proportionally
+        int totalHeroHP = 0;
+        int heroCount = 0;
+        if (playerTeam != null) {
+            for (Character hero : playerTeam) {
+                if (hero != null && hero.isAlive) {
+                    totalHeroHP += hero.maxHP;
+                    heroCount++;
+                }
+            }
+        }
+        int avgHeroHP = heroCount > 0 ? totalHeroHP / heroCount : 500; // Default if no heroes
+        
         // Scale enemy level with player level (capped to keep it balanced)
         int playerLevel = playerProgress != null ? playerProgress.getPlayerLevel() : 1;
-        int baseEnemyLevel = Math.min(50, Math.max(1, playerLevel + levelOffset));
+        int baseEnemyLevel = Math.min(30, Math.max(1, playerLevel + levelOffset));
         
-        // Minimal wave scaling for consistent difficulty
+        // Minimal wave scaling for HP only (not attack)
         double waveScalar = wave != null ? 1.0 + (wave.waveNumber - 1) * 0.03 : 1.0;
         if (wave != null && wave.bossWave) {
-            waveScalar += 0.1; // Small boss bonus
+            waveScalar += 0.1; // Small boss HP bonus
         }
 
         for (int i = 0; i < enemyTeam.length; i++) {
             Character enemy = enemyTeam[i];
             // Enemy level scales with player, with small variation per enemy
-            int levelTarget = Math.min(50, baseEnemyLevel + (i * 1));
+            int levelTarget = Math.min(30, baseEnemyLevel + (i * 1));
             enemy.syncToLevel(levelTarget);
 
-            // Apply multipliers with wave scaling
+            // Apply HP and defense multipliers with wave scaling
             double hpMult = hpMultiplier * waveScalar;
-            double atkMult = attackMultiplier * waveScalar;
             double defMult = defenseMultiplier * waveScalar;
             
-            // Moderate bonus for last enemy (usually boss) - makes them tougher but not impossible
+            // Boss gets more HP and defense, but attack scales with hero HP
             if (i == enemyTeam.length - 1) {
                 hpMult += 0.15; // Boss gets more HP
-                atkMult += 0.1; // Boss gets slightly more attack
                 defMult += 0.08; // Boss gets slightly more defense
             }
-            enemy.applyStatMultiplier(hpMult, manaMultiplier, atkMult, defMult);
+            
+            // Scale enemy attack to be proportional to hero HP (5-7% per basic attack)
+            // This ensures enemies deal fair damage regardless of hero HP
+            double attackPercentOfHeroHP = 0.05 + (index * 0.005); // 5% to 7% based on world
+            if (i == enemyTeam.length - 1) {
+                attackPercentOfHeroHP += 0.01; // Boss deals slightly more (6-8%)
+            }
+            int targetAttack = (int) Math.round(avgHeroHP * attackPercentOfHeroHP);
+            
+            // Apply HP, Mana, Defense multipliers
+            enemy.applyStatMultiplier(hpMult, manaMultiplier, 1.0, defMult);
+            
+            // Set attack directly based on hero HP scaling
+            enemy.baseAttack = enemy.currentAttack = targetAttack;
         }
     }
 
@@ -1804,7 +1848,8 @@ public class UnifiedGameUI extends JFrame {
         playerProgress.addExp(expEarned);
         playerProgress.recordWorldClear(worldId);
         boolean unlockedZyra = false;
-        if (worldId == 3 && !playerProgress.isZyraUnlocked()) {
+        // Unlock Zyra when world 2 is cleared, so she's available for worlds 3, 4, and 5
+        if (worldId == 2 && !playerProgress.isZyraUnlocked()) {
             playerProgress.unlockZyra();
             unlockedZyra = true;
         }
@@ -2609,10 +2654,10 @@ public class UnifiedGameUI extends JFrame {
         Character instantiate(int levelTarget, double difficulty) {
             DynamicEnemy enemy = new DynamicEnemy(name, hp, mana, attack, defense, speed, factories);
             enemy.syncToLevel(Math.max(1, levelTarget));
-            // Balanced scaling - HP scales with difficulty, mana scales less, attack/defense scale moderately
+            // Balanced scaling - HP scales with difficulty, mana scales less, attack will be overridden by applyEnemyScaling
             double hpMult = difficulty;
             double manaMult = 1.0 + Math.max(0, difficulty - 1) * 0.25; // Reduced mana scaling
-            double atkMult = 1.0 + Math.max(0, difficulty - 1) * 0.3; // Moderate attack scaling
+            double atkMult = 1.0; // Attack will be scaled to hero HP in applyEnemyScaling, so keep base
             double defMult = 1.0 + Math.max(0, difficulty - 1) * 0.2; // Lower defense scaling
             enemy.applyStatMultiplier(hpMult, manaMult, atkMult, defMult);
             return enemy;
@@ -2719,7 +2764,7 @@ public class UnifiedGameUI extends JFrame {
             this.healAmount = healAmount;
             this.manaCost = 25;
             this.cooldown = 3;
-            this.description = "Heals all allies for " + healAmount + " HP.";
+            this.description = "Heals all allies for " + healAmount + " HP (only when caster HP ≤ 5%).";
             this.targetType = TargetType.ALL_ALLIES;
         }
 
@@ -2727,6 +2772,20 @@ public class UnifiedGameUI extends JFrame {
         public void execute(Character user, Character[] targets) {
             if (targets == null || targets.length == 0) return;
             if (user.currentMana < manaCost) return;
+            
+            // Priest enemies only heal when their HP is 5% or below
+            double hpPercent = (double) user.currentHP / user.maxHP;
+            if (hpPercent > 0.05) {
+                // HP is above 5%, don't heal
+                return;
+            }
+            
+            // Low to medium chance (35% chance) to actually heal
+            if (Math.random() > 0.35) {
+                // Failed chance, don't heal
+                return;
+            }
+            
             user.currentMana -= manaCost;
             for (Character ally : targets) {
                 if (ally != null && ally.isAlive()) {

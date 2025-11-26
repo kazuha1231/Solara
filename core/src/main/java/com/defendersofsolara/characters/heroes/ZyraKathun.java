@@ -6,8 +6,8 @@ import com.defendersofsolara.skills.zyra.*;
 
 public class ZyraKathun extends Character {
     public ZyraKathun() {
-        // Glass-cannon caster unlocked later in the game
-        super("Zyra Kathun", 980, 720, 135, 70, 64);
+        // Powerful caster unlocked after world 3 - has significantly higher stats
+        super("Zyra Kathun", 1200, 900, 160, 90, 75);
     }
 
     @Override
