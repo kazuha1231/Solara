@@ -78,7 +78,7 @@ public class UnifiedGameUI extends JFrame {
     private static final double[] WORLD_ATK_MULT = {1.0, 1.35, 1.75, 2.2, 2.6};
     private static final double[] WORLD_DEF_MULT = {1.0, 1.3, 1.6, 2.0, 2.4};
     private static final int[] WORLD_ENEMY_LEVEL = {4, 7, 11, 15, 22};
-    private static final int WAVES_PER_WORLD = 10;
+    private static final int WAVES_PER_WORLD = 5;
     private static final List<List<MinionTemplate>> MINION_POOLS = createMinionPools();
 
     // Fade transition
