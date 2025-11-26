@@ -73,11 +73,13 @@ public class UnifiedGameUI extends JFrame {
     private int activeProfile = -1;
     private PlayerProgress playerProgress;
 
-    private static final double[] WORLD_HP_MULT = {1.0, 1.45, 1.95, 2.6, 3.4};
-    private static final double[] WORLD_MANA_MULT = {1.0, 1.3, 1.55, 1.9, 2.3};
-    private static final double[] WORLD_ATK_MULT = {1.0, 1.35, 1.75, 2.2, 2.6};
-    private static final double[] WORLD_DEF_MULT = {1.0, 1.3, 1.6, 2.0, 2.4};
-    private static final int[] WORLD_ENEMY_LEVEL = {4, 7, 11, 15, 22};
+    // Balanced multipliers - normal difficulty, enemies killable but challenging in later worlds
+    private static final double[] WORLD_HP_MULT = {1.0, 1.1, 1.2, 1.35, 1.5};
+    private static final double[] WORLD_MANA_MULT = {1.0, 1.1, 1.2, 1.3, 1.4};
+    private static final double[] WORLD_ATK_MULT = {1.0, 1.1, 1.2, 1.3, 1.4};
+    private static final double[] WORLD_DEF_MULT = {1.0, 1.05, 1.1, 1.15, 1.2};
+    // Enemy levels now scale with player level (base + world offset)
+    private static final int[] WORLD_ENEMY_LEVEL_OFFSET = {0, 1, 2, 3, 4};
     private static final int WAVES_PER_WORLD = 5;
     private static final List<List<MinionTemplate>> MINION_POOLS = createMinionPools();
 
@@ -932,6 +934,52 @@ public class UnifiedGameUI extends JFrame {
 
         JLabel title = UITheme.createTitle("SELECT YOUR WORLD");
         title.setHorizontalAlignment(SwingConstants.CENTER);
+        title.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        title.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                // Secret cheat: Click title to level up by 3 levels and unlock worlds
+                if (playerProgress != null) {
+                    int currentLevel = playerProgress.getPlayerLevel();
+                    int targetLevel = Math.min(50, currentLevel + 3);
+                    
+                    // Calculate EXP needed to reach target level
+                    int expNeeded = 0;
+                    int tempLevel = currentLevel;
+                    int tempExp = playerProgress.getCurrentExp();
+                    int tempExpToNext = playerProgress.getExpToNext();
+                    
+                    while (tempLevel < targetLevel && tempLevel < 50) {
+                        int neededForThisLevel = tempExpToNext - tempExp;
+                        expNeeded += neededForThisLevel;
+                        tempLevel++;
+                        tempExp = 0;
+                        // Calculate next level's exp requirement (same formula as PlayerProgress)
+                        tempExpToNext = Math.round(tempExpToNext * 1.25f) + 50;
+                    }
+                    
+                    // Add the EXP to level up
+                    playerProgress.addExp(expNeeded);
+                    
+                    // Unlock all worlds that are now accessible
+                    int newLevel = playerProgress.getPlayerLevel();
+                    for (int worldId = 1; worldId <= 5; worldId++) {
+                        int requiredLevel = playerProgress.getWorldRequirement(worldId);
+                        if (newLevel >= requiredLevel) {
+                            // Unlock this world and all previous worlds
+                            for (int w = 1; w <= worldId; w++) {
+                                if (!playerProgress.hasClearedWorld(w)) {
+                                    playerProgress.recordWorldClear(w);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Refresh the world selection screen
+                    refreshWorldSelection();
+                }
+            }
+        });
 
         JLabel levelInfo = createReadableLabel(
             String.format("Level %d | EXP %d / %d",
@@ -1499,9 +1547,13 @@ public class UnifiedGameUI extends JFrame {
         List<MinionTemplate> pool = getMinionPool(worldId);
         int count = 2 + random.nextInt(4); // 2-5 minions
         Character[] enemies = new Character[count];
-        int index = Math.max(0, Math.min(worldId - 1, WORLD_ENEMY_LEVEL.length - 1));
-        int levelTarget = WORLD_ENEMY_LEVEL[index] + (waveNumber / 2);
-        double difficulty = 1.0 + (waveNumber - 1) * 0.05;
+        int index = Math.max(0, Math.min(worldId - 1, WORLD_ENEMY_LEVEL_OFFSET.length - 1));
+        
+        // Scale with player level instead of fixed levels
+        int playerLevel = playerProgress != null ? playerProgress.getPlayerLevel() : 1;
+        int levelOffset = WORLD_ENEMY_LEVEL_OFFSET[index];
+        int levelTarget = Math.min(50, Math.max(1, playerLevel + levelOffset + (waveNumber / 2)));
+        double difficulty = 1.0 + (waveNumber - 1) * 0.02; // Minimal difficulty scaling per wave
 
         if (pool.isEmpty()) {
             // Fallback: create a basic enemy if pool is empty
@@ -1538,12 +1590,15 @@ public class UnifiedGameUI extends JFrame {
         int supporters = 1 + random.nextInt(2); // 1-2 supports
         List<MinionTemplate> pool = getMinionPool(worldId);
         if (!pool.isEmpty()) {
+            // Scale supporter level with player level
+            int playerLevel = playerProgress != null ? playerProgress.getPlayerLevel() : 1;
+            int index = Math.min(worldId - 1, WORLD_ENEMY_LEVEL_OFFSET.length - 1);
+            int levelOffset = WORLD_ENEMY_LEVEL_OFFSET[index];
+            int supporterLevel = Math.min(50, Math.max(1, playerLevel + levelOffset + 1));
+            
             for (int i = 0; i < supporters; i++) {
                 MinionTemplate template = pool.get(random.nextInt(pool.size()));
-                roster.add(template.instantiate(
-                    WORLD_ENEMY_LEVEL[Math.min(worldId - 1, WORLD_ENEMY_LEVEL.length - 1)] + 2,
-                    1.25
-                ));
+                roster.add(template.instantiate(supporterLevel, 1.1)); // Slight difficulty increase
             }
         }
         return roster.toArray(new Character[0]);
@@ -1572,8 +1627,12 @@ public class UnifiedGameUI extends JFrame {
             () -> new SoulDrainSkill("Soul Rend", 1.1, 0.4),
             () -> new AegisPulseSkill("Call of Dominion", 160)
         );
-        boss.syncToLevel(20);
-        boss.applyStatMultiplier(1.35, 1.2, 1.25, 1.2);
+        // Boss level now scales with player level (will be adjusted in applyEnemyScaling)
+        int playerLevel = playerProgress != null ? playerProgress.getPlayerLevel() : 1;
+        int bossLevel = Math.min(50, Math.max(1, playerLevel + 2));
+        boss.syncToLevel(bossLevel);
+        // Balanced base multipliers - bosses are tough but fair
+        boss.applyStatMultiplier(1.15, 1.1, 1.1, 1.05);
         return boss;
     }
 
@@ -1698,25 +1757,34 @@ public class UnifiedGameUI extends JFrame {
         double manaMultiplier = WORLD_MANA_MULT[index];
         double attackMultiplier = WORLD_ATK_MULT[index];
         double defenseMultiplier = WORLD_DEF_MULT[index];
-        int baseLevel = WORLD_ENEMY_LEVEL[index];
-
-        double waveScalar = wave != null ? 1.0 + (wave.waveNumber - 1) * 0.07 : 1.0;
+        int levelOffset = WORLD_ENEMY_LEVEL_OFFSET[index];
+        
+        // Scale enemy level with player level (capped to keep it balanced)
+        int playerLevel = playerProgress != null ? playerProgress.getPlayerLevel() : 1;
+        int baseEnemyLevel = Math.min(50, Math.max(1, playerLevel + levelOffset));
+        
+        // Minimal wave scaling for consistent difficulty
+        double waveScalar = wave != null ? 1.0 + (wave.waveNumber - 1) * 0.03 : 1.0;
         if (wave != null && wave.bossWave) {
-            waveScalar += 0.25;
+            waveScalar += 0.1; // Small boss bonus
         }
 
         for (int i = 0; i < enemyTeam.length; i++) {
             Character enemy = enemyTeam[i];
-            int levelTarget = Math.min(50, baseLevel + i * 2);
+            // Enemy level scales with player, with small variation per enemy
+            int levelTarget = Math.min(50, baseEnemyLevel + (i * 1));
             enemy.syncToLevel(levelTarget);
 
+            // Apply multipliers with wave scaling
             double hpMult = hpMultiplier * waveScalar;
             double atkMult = attackMultiplier * waveScalar;
             double defMult = defenseMultiplier * waveScalar;
+            
+            // Moderate bonus for last enemy (usually boss) - makes them tougher but not impossible
             if (i == enemyTeam.length - 1) {
-                hpMult += 0.3;
-                atkMult += 0.25;
-                defMult += 0.2;
+                hpMult += 0.15; // Boss gets more HP
+                atkMult += 0.1; // Boss gets slightly more attack
+                defMult += 0.08; // Boss gets slightly more defense
             }
             enemy.applyStatMultiplier(hpMult, manaMultiplier, atkMult, defMult);
         }
@@ -2541,8 +2609,12 @@ public class UnifiedGameUI extends JFrame {
         Character instantiate(int levelTarget, double difficulty) {
             DynamicEnemy enemy = new DynamicEnemy(name, hp, mana, attack, defense, speed, factories);
             enemy.syncToLevel(Math.max(1, levelTarget));
-            double manaMult = 1.0 + Math.max(0, difficulty - 1) * 0.4;
-            enemy.applyStatMultiplier(difficulty, manaMult, difficulty, difficulty);
+            // Balanced scaling - HP scales with difficulty, mana scales less, attack/defense scale moderately
+            double hpMult = difficulty;
+            double manaMult = 1.0 + Math.max(0, difficulty - 1) * 0.25; // Reduced mana scaling
+            double atkMult = 1.0 + Math.max(0, difficulty - 1) * 0.3; // Moderate attack scaling
+            double defMult = 1.0 + Math.max(0, difficulty - 1) * 0.2; // Lower defense scaling
+            enemy.applyStatMultiplier(hpMult, manaMult, atkMult, defMult);
             return enemy;
         }
     }

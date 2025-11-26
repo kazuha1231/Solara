@@ -34,7 +34,9 @@ public abstract class Character implements Serializable {
     public abstract void initializeSkills();
 
     public void takeDamage(int damage) {
-        int actualDamage = Math.max(1, damage - currentDefense / 2);
+        // Balanced damage formula: defense reduces damage by 40% (was 50%), minimum 1 damage
+        int defenseReduction = (int) Math.round(currentDefense * 0.4);
+        int actualDamage = Math.max(1, damage - defenseReduction);
         currentHP = Math.max(0, currentHP - actualDamage);
         if (currentHP == 0) isAlive = false;
     }
