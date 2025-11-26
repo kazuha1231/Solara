@@ -265,7 +265,7 @@ public class UnifiedGameUI extends JFrame {
     }
 
     private void showWorldStory(int worldId) {
-        if (!playerProgress.canEnterWorld(worldId)) {
+        if (playerProgress == null || !playerProgress.canEnterWorld(worldId)) {
             JOptionPane.showMessageDialog(this,
                 "You do not meet the requirements for World " + worldId + ".",
                 "Locked",
@@ -289,7 +289,7 @@ public class UnifiedGameUI extends JFrame {
     }
 
     private void showBattle(int worldId) {
-        if (!playerProgress.canEnterWorld(worldId)) {
+        if (playerProgress == null || !playerProgress.canEnterWorld(worldId)) {
             JOptionPane.showMessageDialog(this,
                 "You do not meet the requirements for this world.",
                 "Locked",
@@ -404,7 +404,9 @@ public class UnifiedGameUI extends JFrame {
     private void initializeProfiles() {
         try {
             Files.createDirectories(SAVE_DIR);
-        } catch (IOException ignored) { }
+        } catch (IOException e) {
+            System.err.println("Error creating save directory: " + e.getMessage());
+        }
 
         for (int i = 0; i < PROFILE_SLOTS; i++) {
             Path file = SAVE_DIR.resolve("profile" + (i + 1) + ".dat");
@@ -414,9 +416,18 @@ public class UnifiedGameUI extends JFrame {
             }
             profileSlots[i] = data;
         }
-        activeProfile = 0;
-        playerProgress = profileSlots[activeProfile];
+        // Set first profile as active if none selected
+        if (activeProfile < 0) {
+            activeProfile = 0;
         }
+        if (activeProfile >= 0 && activeProfile < PROFILE_SLOTS) {
+            playerProgress = profileSlots[activeProfile];
+            if (playerProgress != null) {
+                // Don't auto-start session on initialization
+                // Session will start when entering battle or selecting profile
+            }
+        }
+    }
 
     private void loadWorldIcons() {
         worldIcons.clear();
@@ -3286,15 +3297,18 @@ public class UnifiedGameUI extends JFrame {
         // Update playerProgress if we have an active profile
         if (activeProfile >= 0 && activeProfile < PROFILE_SLOTS) {
             playerProgress = profileSlots[activeProfile];
-            // Start session if we have an active profile and session hasn't started
-            if (playerProgress != null && playerProgress.getTotalPlayTimeMs() == 0 && 
-                currentScreen != null && !currentScreen.equals(SCREEN_MAIN_MENU)) {
-                playerProgress.startSession();
-            }
+            // Note: Don't auto-start session here - session should start when entering battle
+            // or when explicitly selecting a profile. This prevents time tracking issues.
         }
     }
     void resetProfileSlot(int profileIndex, boolean deleteFile) {
         int idx = Math.max(1, Math.min(PROFILE_SLOTS, profileIndex)) - 1;
+        
+        // End session if resetting the active profile
+        if (activeProfile == idx && playerProgress != null) {
+            playerProgress.endSession();
+        }
+        
         PlayerProgress newProgress = new PlayerProgress();
         profileSlots[idx] = newProgress;
         if (activeProfile == idx) {
@@ -3306,6 +3320,7 @@ public class UnifiedGameUI extends JFrame {
             try {
                 Files.deleteIfExists(file);
             } catch (IOException e) {
+                System.err.println("Error deleting profile file: " + e.getMessage());
                 e.printStackTrace();
             }
         } else {

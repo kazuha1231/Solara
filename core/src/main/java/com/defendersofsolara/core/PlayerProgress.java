@@ -159,15 +159,15 @@ public class PlayerProgress implements Serializable {
         return sdf.format(new Date(lastSaveTime));
     }
     
-    // Handle serialization version compatibility
+    // Handle serialization version compatibility for old save files
+    // This ensures backward compatibility when loading saves from version 1 (without time tracking)
     private void readObject(ObjectInputStream ois) throws IOException, ClassNotFoundException {
         ois.defaultReadObject();
-        // Initialize new fields for old saves
-        if (totalPlayTimeMs == 0 && sessionStartTime == 0 && lastSaveTime == 0) {
-            totalPlayTimeMs = 0;
-            sessionStartTime = 0;
-            lastSaveTime = 0;
-        }
+        // Ensure time tracking fields are valid (handle old saves that don't have these fields)
+        // Default values are 0, but ensure they're not negative (defensive programming)
+        if (totalPlayTimeMs < 0) totalPlayTimeMs = 0;
+        if (sessionStartTime < 0) sessionStartTime = 0;
+        if (lastSaveTime < 0) lastSaveTime = 0;
     }
 }
 

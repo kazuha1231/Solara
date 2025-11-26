@@ -71,7 +71,7 @@ class ProfileUI extends JPanel {
         // A profile is "new" if it's null, or if it has no progress AND has never been saved
         boolean isNew = progress == null || (progress.getPlayerLevel() == 1
             && progress.getCurrentExp() == 0 && progress.getClearedWorldCount() == 0
-            && progress.getLastSaveTime() == 0);
+            && (progress.getLastSaveTime() == 0));
         boolean isActive = parent.getActiveProfileIndex() == profileIndex - 1;
 
         final boolean[] hover = {false};
