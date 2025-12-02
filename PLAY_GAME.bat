@@ -1,13 +1,11 @@
 @echo off
-setlocal enabledelayedexpansion
-
 echo ========================================
 echo   Defenders of Solara - Game Launcher
 echo ========================================
 echo.
 
 REM Check if Java is installed
-where java >nul 2>&1
+java -version >nul 2>&1
 if errorlevel 1 (
     echo ERROR: Java is not installed or not in PATH.
     echo Please install Java JDK 8 or higher and try again.
@@ -33,7 +31,7 @@ if "%1"=="--rebuild" (
     echo.
 )
 
-REM Check if JAR file exists or if rebuild is requested
+REM Check if JAR file exists
 if not exist "core\build\libs\defenders-of-solara-1.0.0-all.jar" (
     set FORCE_REBUILD=1
 )
@@ -46,7 +44,7 @@ if %FORCE_REBUILD%==1 (
     REM Clean old build if it exists
     if exist "core\build\libs\defenders-of-solara-1.0.0-all.jar" (
         echo Removing old JAR file...
-        del /q "core\build\libs\defenders-of-solara-1.0.0-all.jar" >nul 2>&1
+        del /q "core\build\libs\defenders-of-solara-1.0.0-all.jar" 2>nul
     )
     
     REM Build the fat JAR with all dependencies
@@ -93,12 +91,10 @@ echo ========================================
 echo.
 
 java -jar "core\build\libs\defenders-of-solara-1.0.0-all.jar"
-set GAME_EXIT_CODE=%errorlevel%
-
-if %GAME_EXIT_CODE% neq 0 (
+if errorlevel 1 (
     echo.
     echo ========================================
-    echo   Game exited with error code: %GAME_EXIT_CODE%
+    echo   Game exited with an error.
     echo ========================================
     echo.
     echo Check the messages above for error details.
@@ -109,7 +105,7 @@ if %GAME_EXIT_CODE% neq 0 (
     echo   - Missing music files in resources
     echo.
     pause
-    exit /b %GAME_EXIT_CODE%
+    exit /b 1
 )
 
 echo.

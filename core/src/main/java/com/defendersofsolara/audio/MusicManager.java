@@ -1,6 +1,10 @@
 package com.defendersofsolara.audio;
 
-import javazoom.jl.player.Player;
+import javazoom.jl.decoder.Bitstream;
+import javazoom.jl.decoder.Decoder;
+import javazoom.jl.decoder.Header;
+import javazoom.jl.decoder.SampleBuffer;
+import javax.sound.sampled.*;
 import java.io.InputStream;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -9,7 +13,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Handles menu and dungeon music based on game state.
  */
 public class MusicManager {
-    private Player currentPlayer;
+    private SourceDataLine audioLine;
     private Thread playbackThread;
     private final AtomicBoolean isPlaying = new AtomicBoolean(false);
     private final AtomicBoolean shouldStop = new AtomicBoolean(false);
@@ -17,6 +21,8 @@ public class MusicManager {
     
     private float masterVolume = 0.8f;
     private float musicVolume = 0.8f;
+    
+    private FloatControl gainControl;
     
     /**
      * Play a music file with looping.
@@ -45,6 +51,7 @@ public class MusicManager {
         playbackThread = new Thread(() -> {
             while (!shouldStop.get() && !Thread.currentThread().isInterrupted()) {
                 InputStream is = null;
+                Bitstream bitstream = null;
                 try {
                     is = getClass().getClassLoader().getResourceAsStream(resourcePath);
                     if (is == null) {
@@ -52,9 +59,59 @@ public class MusicManager {
                         break;
                     }
                     
-                    currentPlayer = new Player(is);
+                    // Use JLayer decoder with Java Sound API for volume control
+                    bitstream = new Bitstream(is);
+                    Decoder decoder = new Decoder();
+                    
+                    // Read first frame to get audio format
+                    Header header = bitstream.readFrame();
+                    if (header == null) {
+                        System.err.println("Invalid MP3 file");
+                        break;
+                    }
+                    
+                    int sampleRate = header.frequency();
+                    int channels = header.mode() == Header.SINGLE_CHANNEL ? 1 : 2;
+                    AudioFormat audioFormat = new AudioFormat(sampleRate, 16, channels, true, false);
+                    DataLine.Info info = new DataLine.Info(SourceDataLine.class, audioFormat);
+                    
+                    if (!AudioSystem.isLineSupported(info)) {
+                        System.err.println("Audio format not supported: " + audioFormat);
+                        break;
+                    }
+                    
+                    audioLine = (SourceDataLine) AudioSystem.getLine(info);
+                    audioLine.open(audioFormat);
+                    
+                    // Get volume control
+                    if (audioLine.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
+                        gainControl = (FloatControl) audioLine.getControl(FloatControl.Type.MASTER_GAIN);
+                    } else if (audioLine.isControlSupported(FloatControl.Type.VOLUME)) {
+                        gainControl = (FloatControl) audioLine.getControl(FloatControl.Type.VOLUME);
+                    }
+                    
+                    updateVolume();
+                    
+                    audioLine.start();
                     isPlaying.set(true);
-                    currentPlayer.play();
+                    
+                    // Play all frames
+                    do {
+                        if (shouldStop.get() || Thread.currentThread().isInterrupted()) {
+                            break;
+                        }
+                        
+                        SampleBuffer output = (SampleBuffer) decoder.decodeFrame(header, bitstream);
+                        short[] samples = output.getBuffer();
+                        int length = output.getBufferLength();
+                        byte[] byteBuffer = new byte[length * 2];
+                        for (int i = 0; i < length; i++) {
+                            byteBuffer[i * 2] = (byte) (samples[i] & 0xFF);
+                            byteBuffer[i * 2 + 1] = (byte) ((samples[i] >> 8) & 0xFF);
+                        }
+                        audioLine.write(byteBuffer, 0, byteBuffer.length);
+                        bitstream.closeFrame();
+                    } while ((header = bitstream.readFrame()) != null);
                     
                     // If we reach here, the track finished. Check if we should loop.
                     if (shouldStop.get() || Thread.currentThread().isInterrupted()) {
@@ -70,7 +127,15 @@ public class MusicManager {
                     e.printStackTrace();
                     break;
                 } finally {
-                    // Close the InputStream if it wasn't closed by the Player
+                    // Close bitstream
+                    if (bitstream != null) {
+                        try {
+                            bitstream.close();
+                        } catch (Exception e) {
+                            // Ignore
+                        }
+                    }
+                    // Close the InputStream
                     if (is != null) {
                         try {
                             is.close();
@@ -78,19 +143,24 @@ public class MusicManager {
                             // Ignore
                         }
                     }
-                    // Close player if it still exists
-                    if (currentPlayer != null) {
+                    // Close audio line if it still exists
+                    if (audioLine != null) {
                         try {
-                            currentPlayer.close();
+                            if (audioLine.isRunning()) {
+                                audioLine.stop();
+                            }
+                            audioLine.close();
                         } catch (Exception e) {
                             // Ignore
                         }
-                        currentPlayer = null;
+                        audioLine = null;
+                        gainControl = null;
                     }
                 }
             }
             isPlaying.set(false);
-            currentPlayer = null;
+            audioLine = null;
+            gainControl = null;
         });
         
         playbackThread.setDaemon(true);
@@ -104,14 +174,16 @@ public class MusicManager {
         shouldStop.set(true);
         isPlaying.set(false);
         
-        // Close the player first to stop audio immediately
-        if (currentPlayer != null) {
+        // Close the audio line first to stop audio immediately
+        if (audioLine != null) {
             try {
-                currentPlayer.close();
+                audioLine.stop();
+                audioLine.close();
             } catch (Exception e) {
                 // Ignore
             }
-            currentPlayer = null;
+            audioLine = null;
+            gainControl = null;
         }
         
         // Interrupt the thread to stop the loop
@@ -135,8 +207,7 @@ public class MusicManager {
      */
     public void setMasterVolume(float volume) {
         this.masterVolume = Math.max(0.0f, Math.min(1.0f, volume));
-        // Note: JLayer doesn't support volume control directly, 
-        // but we store it for potential future use with a different library
+        updateVolume();
     }
     
     /**
@@ -144,8 +215,33 @@ public class MusicManager {
      */
     public void setMusicVolume(float volume) {
         this.musicVolume = Math.max(0.0f, Math.min(1.0f, volume));
-        // Note: JLayer doesn't support volume control directly,
-        // but we store it for potential future use with a different library
+        updateVolume();
+    }
+    
+    /**
+     * Update the actual audio volume based on master and music volume settings.
+     */
+    private void updateVolume() {
+        if (gainControl == null) {
+            return;
+        }
+        
+        try {
+            float combinedVolume = masterVolume * musicVolume;
+            
+            if (gainControl.getType() == FloatControl.Type.MASTER_GAIN) {
+                // MASTER_GAIN is in decibels, range is typically -80.0 to 6.0206
+                float minGain = gainControl.getMinimum();
+                float maxGain = gainControl.getMaximum();
+                float gain = minGain + (maxGain - minGain) * combinedVolume;
+                gainControl.setValue(gain);
+            } else if (gainControl.getType() == FloatControl.Type.VOLUME) {
+                // VOLUME is linear, range is typically 0.0 to 1.0
+                gainControl.setValue(combinedVolume);
+            }
+        } catch (Exception e) {
+            // Ignore volume control errors
+        }
     }
     
     /**

@@ -1,10 +1,12 @@
 package com.defendersofsolara.ui;
 
 import com.defendersofsolara.audio.MusicManager;
+import com.defendersofsolara.audio.SoundEffectManager;
 import com.defendersofsolara.characters.enemies.*;
 import com.defendersofsolara.characters.heroes.*;
 import com.defendersofsolara.core.BattleState;
 import com.defendersofsolara.core.Character;
+import com.defendersofsolara.core.GameSettings;
 import com.defendersofsolara.core.PlayerProgress;
 import com.defendersofsolara.core.Skill;
 import com.defendersofsolara.core.TargetType;
@@ -115,8 +117,10 @@ public class UnifiedGameUI extends JFrame {
     // Background image
     private BufferedImage menuBackground = null;
     
-    // Music manager
+    // Audio managers
     private MusicManager musicManager;
+    private SoundEffectManager soundEffectManager;
+    private GameSettings gameSettings;
 
     // ==================== CONSTRUCTOR ====================
 
@@ -131,10 +135,18 @@ public class UnifiedGameUI extends JFrame {
         loadWorldIcons();
         loadMenuBackground();
         
-        // Initialize music manager
+        // Load game settings
+        gameSettings = GameSettings.getInstance();
+        
+        // Initialize audio managers with saved settings
         musicManager = new MusicManager();
-        musicManager.setMasterVolume(0.8f);
-        musicManager.setMusicVolume(0.8f);
+        soundEffectManager = SoundEffectManager.getInstance();
+        
+        // Apply saved audio settings
+        musicManager.setMasterVolume(gameSettings.getMasterVolume());
+        musicManager.setMusicVolume(gameSettings.getMusicVolume());
+        soundEffectManager.setMasterVolume(gameSettings.getMasterVolume());
+        soundEffectManager.setSfxVolume(gameSettings.getSfxVolume());
         
         cardLayout = new CardLayout();
         mainContainer = new JPanel(cardLayout);
@@ -168,6 +180,25 @@ public class UnifiedGameUI extends JFrame {
 
         setVisible(true);
         setupGlobalKeyBindings();
+        
+        // Add window listener to save settings and cleanup on close
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                // Save settings
+                if (gameSettings != null) {
+                    gameSettings.save();
+                }
+                // Stop music
+                if (musicManager != null) {
+                    musicManager.stopMusic();
+                }
+                // Shutdown sound effects
+                if (soundEffectManager != null) {
+                    soundEffectManager.shutdown();
+                }
+            }
+        });
     }
     
     private void updateCurrentScreen(String screenName) {
@@ -998,13 +1029,15 @@ public class UnifiedGameUI extends JFrame {
         agbc.gridy = 0;
         audioPanel.add(masterLabel, agbc);
 
-        int masterVol = (int)(musicManager.getMasterVolume() * 100);
+        int masterVol = (int)(gameSettings.getMasterVolume() * 100);
         JSlider masterSlider = new JSlider(0, 100, masterVol);
         masterSlider.setOpaque(false);
         masterSlider.setPreferredSize(new Dimension(250, 40));
         masterSlider.addChangeListener(e -> {
             float volume = masterSlider.getValue() / 100.0f;
+            gameSettings.setMasterVolume(volume);
             musicManager.setMasterVolume(volume);
+            soundEffectManager.setMasterVolume(volume);
         });
         agbc.gridy = 1;
         audioPanel.add(masterSlider, agbc);
@@ -1014,12 +1047,13 @@ public class UnifiedGameUI extends JFrame {
         agbc.gridy = 2;
         audioPanel.add(musicLabel, agbc);
 
-        int musicVol = (int)(musicManager.getMusicVolume() * 100);
+        int musicVol = (int)(gameSettings.getMusicVolume() * 100);
         JSlider musicSlider = new JSlider(0, 100, musicVol);
         musicSlider.setOpaque(false);
         musicSlider.setPreferredSize(new Dimension(250, 40));
         musicSlider.addChangeListener(e -> {
             float volume = musicSlider.getValue() / 100.0f;
+            gameSettings.setMusicVolume(volume);
             musicManager.setMusicVolume(volume);
         });
         agbc.gridy = 3;
@@ -1030,9 +1064,15 @@ public class UnifiedGameUI extends JFrame {
         agbc.gridy = 4;
         audioPanel.add(sfxLabel, agbc);
 
-        JSlider sfxSlider = new JSlider(0, 100, 80);
+        int sfxVol = (int)(gameSettings.getSfxVolume() * 100);
+        JSlider sfxSlider = new JSlider(0, 100, sfxVol);
         sfxSlider.setOpaque(false);
         sfxSlider.setPreferredSize(new Dimension(250, 40));
+        sfxSlider.addChangeListener(e -> {
+            float volume = sfxSlider.getValue() / 100.0f;
+            gameSettings.setSfxVolume(volume);
+            soundEffectManager.setSfxVolume(volume);
+        });
         agbc.gridy = 5;
         audioPanel.add(sfxSlider, agbc);
 
@@ -3852,8 +3892,12 @@ public class UnifiedGameUI extends JFrame {
         dialog.getRootPane().setOpaque(false); // Make root pane transparent
 
         PausePanel glassPanel = new PausePanel();
+        glassPanel.setLayout(new BorderLayout());
         
         // Center panel for buttons
+        JPanel centerPanel = new JPanel(new BorderLayout());
+        centerPanel.setOpaque(false);
+        
         JPanel buttonPanel = new JPanel(new GridBagLayout());
         buttonPanel.setOpaque(false);
         buttonPanel.setBackground(new Color(0, 0, 0, 0)); // Fully transparent
@@ -3891,8 +3935,58 @@ public class UnifiedGameUI extends JFrame {
         });
         gbc.gridy = 3;
         buttonPanel.add(exitMenuBtn, gbc);
-
-        glassPanel.add(buttonPanel, BorderLayout.CENTER);
+        
+        // Volume controls panel (bottom of center)
+        JPanel volumePanel = new JPanel(new GridBagLayout());
+        volumePanel.setOpaque(false);
+        GridBagConstraints vgbc = new GridBagConstraints();
+        vgbc.gridx = 0;
+        vgbc.insets = new Insets(10, 20, 10, 20);
+        vgbc.anchor = GridBagConstraints.CENTER;
+        
+        JLabel masterVolLabel = new JLabel("Master Volume");
+        masterVolLabel.setForeground(UITheme.PRIMARY_CYAN);
+        masterVolLabel.setFont(UITheme.FONT_BUTTON.deriveFont(14f));
+        vgbc.gridy = 0;
+        volumePanel.add(masterVolLabel, vgbc);
+        
+        int masterVol = (int)(gameSettings.getMasterVolume() * 100);
+        JSlider masterVolSlider = new JSlider(0, 100, masterVol);
+        masterVolSlider.setOpaque(false);
+        masterVolSlider.setPreferredSize(new Dimension(200, 30));
+        masterVolSlider.setBackground(new Color(0, 0, 0, 0));
+        masterVolSlider.addChangeListener(e -> {
+            float volume = masterVolSlider.getValue() / 100.0f;
+            gameSettings.setMasterVolume(volume);
+            musicManager.setMasterVolume(volume);
+            soundEffectManager.setMasterVolume(volume);
+        });
+        vgbc.gridy = 1;
+        volumePanel.add(masterVolSlider, vgbc);
+        
+        JLabel musicVolLabel = new JLabel("Music Volume");
+        musicVolLabel.setForeground(UITheme.PRIMARY_CYAN);
+        musicVolLabel.setFont(UITheme.FONT_BUTTON.deriveFont(14f));
+        vgbc.gridy = 2;
+        volumePanel.add(musicVolLabel, vgbc);
+        
+        int musicVol = (int)(gameSettings.getMusicVolume() * 100);
+        JSlider musicVolSlider = new JSlider(0, 100, musicVol);
+        musicVolSlider.setOpaque(false);
+        musicVolSlider.setPreferredSize(new Dimension(200, 30));
+        musicVolSlider.setBackground(new Color(0, 0, 0, 0));
+        musicVolSlider.addChangeListener(e -> {
+            float volume = musicVolSlider.getValue() / 100.0f;
+            gameSettings.setMusicVolume(volume);
+            musicManager.setMusicVolume(volume);
+        });
+        vgbc.gridy = 3;
+        volumePanel.add(musicVolSlider, vgbc);
+        
+        centerPanel.add(buttonPanel, BorderLayout.CENTER);
+        centerPanel.add(volumePanel, BorderLayout.SOUTH);
+        
+        glassPanel.add(centerPanel, BorderLayout.CENTER);
         dialog.setContentPane(glassPanel);
         dialog.getContentPane().setBackground(new Color(0, 0, 0, 0)); // Ensure content pane is transparent
         dialog.setResizable(false);
