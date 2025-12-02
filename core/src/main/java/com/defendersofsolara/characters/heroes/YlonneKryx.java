@@ -7,14 +7,14 @@ import com.defendersofsolara.skills.ylonne.*;
 public class YlonneKryx extends Character {
     public YlonneKryx() {
         // Agile DPS: slightly lower HP, moderate mana for burst abilities
-        super("Ylonne Kryx", 780, 600, 140, 55, 98);
+        super("Ylonne Kryx", 800, 620, 145, 60, 90);
     }
 
     @Override
     public void initializeSkills() {
         skills.add(new AttackSkill());
-        skills.add(new RicochetShotSkill());
         skills.add(new SilentStepSkill());
-        skills.add(new HuntersInstinctUltimate());
+        skills.add(new ShadowStrikeSkill()); // High single-target damage
+        skills.add(new RicochetUltimate()); // Ultimate: Ricochet
     }
 }

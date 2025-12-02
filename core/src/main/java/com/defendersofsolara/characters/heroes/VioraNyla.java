@@ -8,7 +8,7 @@ public class VioraNyla extends Character {
 
     public VioraNyla() {
         // Support mage: balanced HP/mana leaning toward casting
-        super("Viora Nyla", 850, 700, 95, 65, 72);
+        super("Viora Nyla", 850, 720, 100, 70, 70);
     }
 
     @Override

@@ -2,6 +2,7 @@ package com.defendersofsolara.ui;
 
 import com.defendersofsolara.characters.enemies.*;
 import com.defendersofsolara.characters.heroes.*;
+import com.defendersofsolara.core.BattleState;
 import com.defendersofsolara.core.Character;
 import com.defendersofsolara.core.PlayerProgress;
 import com.defendersofsolara.core.Skill;
@@ -48,6 +49,7 @@ public class UnifiedGameUI extends JFrame {
     public static final String SCREEN_WORLD_SELECT = "world_select";
     public static final String SCREEN_WORLD_STORY = "world_story";
     public static final String SCREEN_BATTLE = "battle";
+    public static final String SCREEN_CHARACTER_SELECT = "character_select";
 
     // ==================== STATE ====================
 
@@ -55,6 +57,7 @@ public class UnifiedGameUI extends JFrame {
     private final JPanel mainContainer;
     private final Map<Integer, ImageIcon> worldIcons = new HashMap<>();
     private String currentScreen = SCREEN_MAIN_MENU;
+    private int pendingWorldId = 0; // World ID pending character selection
     private boolean settingsOpenedFromPause = false; // Track if settings was opened from pause menu
 
     private int selectedWorldId = 1;
@@ -131,6 +134,7 @@ public class UnifiedGameUI extends JFrame {
         mainContainer.add(createSettingsMenu(), SCREEN_SETTINGS);
         mainContainer.add(createNarrativeIntro(), SCREEN_NARRATIVE);
         mainContainer.add(createProfileSelect(), SCREEN_PROFILE_SELECT);
+        mainContainer.add(createCharacterSelection(), SCREEN_CHARACTER_SELECT);
         mainContainer.add(createWorldSelection(), SCREEN_WORLD_SELECT);
 
         setContentPane(mainContainer);
@@ -166,8 +170,81 @@ public class UnifiedGameUI extends JFrame {
             refreshProfileSelect();
         } else if (SCREEN_WORLD_SELECT.equals(screenName)) {
             refreshWorldSelection();
+        } else if (SCREEN_CHARACTER_SELECT.equals(screenName)) {
+            refreshCharacterSelection();
         }
         startFadeTo(screenName);
+    }
+    
+    private void refreshCharacterSelection() {
+        System.out.println("=== REFRESHING CHARACTER SELECTION ===");
+        System.out.println("pendingWorldId = " + pendingWorldId);
+        
+        // Remove existing character selection screen if it exists
+        Component toRemove = null;
+        for (Component comp : mainContainer.getComponents()) {
+            String compName = comp.getName();
+            System.out.println("Checking component: " + compName + " (class: " + comp.getClass().getSimpleName() + ")");
+            if (SCREEN_CHARACTER_SELECT.equals(compName)) {
+                toRemove = comp;
+                System.out.println("Found existing character selection screen to remove");
+                break;
+            }
+        }
+        if (toRemove != null) {
+            mainContainer.remove(toRemove);
+            System.out.println("Removed existing character selection screen");
+            // Force layout update
+            mainContainer.revalidate();
+            mainContainer.repaint();
+        }
+        
+        // Create and add new character selection screen
+        System.out.println("Creating new character selection panel...");
+        JPanel newPanel = createCharacterSelection();
+        newPanel.setName(SCREEN_CHARACTER_SELECT); // Ensure name is set
+        
+        // Add with the constraint name (CardLayout uses this, not component name)
+        mainContainer.add(newPanel, SCREEN_CHARACTER_SELECT);
+        System.out.println("Added new panel to CardLayout with constraint: " + SCREEN_CHARACTER_SELECT);
+        
+        // Force CardLayout to recognize the new component
+        mainContainer.revalidate();
+        mainContainer.repaint();
+        
+        // Verify the component is in CardLayout
+        int compCount = mainContainer.getComponentCount();
+        System.out.println("CardLayout now has " + compCount + " components");
+        System.out.println("Component names in CardLayout:");
+        for (int i = 0; i < compCount; i++) {
+            Component comp = mainContainer.getComponent(i);
+            System.out.println("  [" + i + "] Name: " + comp.getName() + 
+                             ", Class: " + comp.getClass().getSimpleName() +
+                             ", Visible: " + comp.isVisible() +
+                             ", Same as newPanel: " + (comp == newPanel));
+        }
+        
+        // CRITICAL: Verify the new panel is actually in the container
+        boolean found = false;
+        for (Component comp : mainContainer.getComponents()) {
+            if (comp == newPanel) {
+                found = true;
+                System.out.println("✓ New panel confirmed in CardLayout");
+                break;
+            }
+        }
+        if (!found) {
+            System.err.println("✗ ERROR: New panel NOT found in CardLayout after addition!");
+        }
+        
+        // Force a layout update to ensure CardLayout recognizes the component
+        SwingUtilities.invokeLater(() -> {
+            mainContainer.revalidate();
+            mainContainer.repaint();
+            System.out.println("Layout update scheduled on EDT");
+        });
+        
+        System.out.println("=== CHARACTER SELECTION REFRESH COMPLETE ===");
     }
 
     PlayerProgress getPlayerProgress() {
@@ -209,16 +286,29 @@ public class UnifiedGameUI extends JFrame {
                         ", EXP " + loaded.getCurrentExp() + "/" + loaded.getExpToNext() + 
                         ", Worlds: " + loaded.getClearedWorldCount());
                 } else {
-                    profileSlots[activeProfile] = new PlayerProgress();
-                }
+                profileSlots[activeProfile] = new PlayerProgress();
+            }
             }
             
             playerProgress = profileSlots[activeProfile];
             // Start session for new profile
             if (playerProgress != null) {
                 playerProgress.startSession();
+                
+                // Auto-resume: if there's an active battle, go directly to it
+                if (playerProgress.hasActiveBattle()) {
+                    BattleState battleState = playerProgress.getBattleState();
+                    if (battleState != null) {
+                        int savedWorldId = battleState.getWorldId();
+                        System.out.println("Auto-resuming battle in World " + savedWorldId);
+                        showBattle(savedWorldId);
+                        return;
+                    }
+                }
             }
         }
+        
+        // Go directly to world selection (character selection happens when clicking a world)
         showScreen(SCREEN_WORLD_SELECT);
     }
 
@@ -249,8 +339,22 @@ public class UnifiedGameUI extends JFrame {
                     if (fadeAlpha >= 1f) {
                         fadeAlpha = 1f;
                         // switch screen at full black
-                        cardLayout.show(mainContainer, targetScreen);
-                        updateCurrentScreen(targetScreen);
+                        // CardLayout.show() uses the constraint (second parameter of add()), not component name
+                        // Try to show the screen - CardLayout will handle it
+                        try {
+                            System.out.println("Attempting to show screen: " + targetScreen);
+                            cardLayout.show(mainContainer, targetScreen);
+                            updateCurrentScreen(targetScreen);
+                            System.out.println("Successfully switched to screen: " + targetScreen);
+                        } catch (Exception ex) {
+                            System.err.println("ERROR: Failed to show screen: " + targetScreen);
+                            System.err.println("Exception: " + ex.getMessage());
+                            System.err.println("Available components in CardLayout:");
+                            for (Component comp : mainContainer.getComponents()) {
+                                System.err.println("  - Name: " + comp.getName() + ", Class: " + comp.getClass().getSimpleName());
+                            }
+                            ex.printStackTrace();
+                        }
                         switched = true;
                     }
                 } else {
@@ -269,10 +373,9 @@ public class UnifiedGameUI extends JFrame {
 
     private void showWorldStory(int worldId) {
         if (playerProgress == null || !playerProgress.canEnterWorld(worldId)) {
-            JOptionPane.showMessageDialog(this,
+            showStyledMessageDialog(this,
                 "You do not meet the requirements for World " + worldId + ".",
-                "Locked",
-                JOptionPane.WARNING_MESSAGE
+                "Locked"
             );
             return;
         }
@@ -293,10 +396,9 @@ public class UnifiedGameUI extends JFrame {
 
     private void showBattle(int worldId) {
         if (playerProgress == null || !playerProgress.canEnterWorld(worldId)) {
-            JOptionPane.showMessageDialog(this,
+            showStyledMessageDialog(this,
                 "You do not meet the requirements for this world.",
-                "Locked",
-                JOptionPane.WARNING_MESSAGE
+                "Locked"
             );
             return;
         }
@@ -313,7 +415,7 @@ public class UnifiedGameUI extends JFrame {
         if (playerProgress != null) {
             playerProgress.startSession();
         }
-        
+
         JPanel battlePanel = createBattle(worldId);
         battlePanel.setName(SCREEN_BATTLE);
         mainContainer.add(battlePanel, SCREEN_BATTLE);
@@ -421,16 +523,16 @@ public class UnifiedGameUI extends JFrame {
         }
         // Set first profile as active if none selected
         if (activeProfile < 0) {
-            activeProfile = 0;
+        activeProfile = 0;
         }
         if (activeProfile >= 0 && activeProfile < PROFILE_SLOTS) {
-            playerProgress = profileSlots[activeProfile];
+        playerProgress = profileSlots[activeProfile];
             if (playerProgress != null) {
                 // Don't auto-start session on initialization
                 // Session will start when entering battle or selecting profile
             }
         }
-    }
+        }
 
     private void loadWorldIcons() {
         worldIcons.clear();
@@ -782,10 +884,9 @@ public class UnifiedGameUI extends JFrame {
             setVisible(true);
 
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this,
+            showStyledMessageDialog(this,
                 "Error: " + ex.getMessage(),
-                "Settings Error",
-                JOptionPane.ERROR_MESSAGE
+                "Settings Error"
             );
         }
     }
@@ -881,6 +982,205 @@ public class UnifiedGameUI extends JFrame {
     }
 
     // ==================== WORLD SELECTION ====================
+
+    private JPanel createCharacterSelection() {
+        JPanel panel = new JPanel(new BorderLayout(10, 10)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                paintBackground(g2d, getWidth(), getHeight());
+                g2d.setColor(new Color(0, 0, 0, 200));
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+            }
+        };
+        panel.setOpaque(false);
+        
+        String titleText = pendingWorldId > 0 
+            ? "SELECT YOUR TEAM - WORLD " + pendingWorldId
+            : "SELECT YOUR TEAM";
+        JLabel title = UITheme.createTitle(titleText);
+        title.setHorizontalAlignment(SwingConstants.CENTER);
+        
+        String instructionText = pendingWorldId > 0
+            ? "Choose 4 heroes from the 8 available characters for World " + pendingWorldId
+            : "Choose 4 heroes from the 8 available characters";
+        JLabel instruction = createReadableLabel(
+            instructionText,
+            UITheme.FONT_TEXT,
+            UITheme.PRIMARY_WHITE,
+            SwingConstants.CENTER
+        );
+        
+        JPanel titlePanel = new JPanel(new GridLayout(2, 1));
+        titlePanel.setOpaque(false);
+        titlePanel.add(title);
+        titlePanel.add(instruction);
+        
+        // All 8 available heroes
+        String[] heroClasses = {
+            "com.defendersofsolara.characters.heroes.Ka",
+            "com.defendersofsolara.characters.heroes.ZyraKathelDraven",
+            "com.defendersofsolara.characters.heroes.VioraNyla",
+            "com.defendersofsolara.characters.heroes.YlonneKryx",
+            "com.defendersofsolara.characters.heroes.SeraphineDrael",
+            "com.defendersofsolara.characters.heroes.DravikThorn",
+            "com.defendersofsolara.characters.heroes.NyxValora",
+            "com.defendersofsolara.characters.heroes.OrinKaelus"
+        };
+        
+        String[] heroNames = {
+            "Ka", "Zyra Kathel Draven", "Viora Nyla", "Ylonne Kryx",
+            "Seraphine Drael", "Dravik Thorn", "Nyx Valora", "Orin Kaelus"
+        };
+        
+        String[] heroRoles = {
+            "AoE DPS / Self-Heal", "Tank/Damage", "Support/Debuff", "Assassin",
+            "Healer/Support", "Bruiser", "Stealth/Assassin", "Tank/Support"
+        };
+        
+        JPanel heroesPanel = new JPanel(new GridLayout(2, 4, 15, 15));
+        heroesPanel.setOpaque(false);
+        heroesPanel.setBorder(new EmptyBorder(30, 50, 30, 50));
+        
+        final List<String> selectedHeroes = new ArrayList<>();
+        final JButton[] heroButtons = new JButton[8];
+        final boolean[] isSelected = new boolean[8];
+        
+        for (int i = 0; i < 8; i++) {
+            final int index = i;
+            final String heroClass = heroClasses[i];
+            final String heroName = heroNames[i];
+            final String heroRole = heroRoles[i];
+            
+            JPanel heroCard = new JPanel(new BorderLayout(5, 5));
+            heroCard.setOpaque(false);
+            heroCard.setBorder(BorderFactory.createLineBorder(UITheme.BORDER_NORMAL, 2));
+            heroCard.setPreferredSize(new Dimension(200, 180));
+            
+            JLabel nameLabel = new JLabel(heroName, SwingConstants.CENTER);
+            nameLabel.setFont(UITheme.FONT_TEXT.deriveFont(Font.BOLD, 14f));
+            nameLabel.setForeground(UITheme.PRIMARY_WHITE);
+            
+            JLabel roleLabel = new JLabel(heroRole, SwingConstants.CENTER);
+            roleLabel.setFont(UITheme.FONT_TEXT.deriveFont(Font.PLAIN, 11f));
+            roleLabel.setForeground(UITheme.PRIMARY_CYAN);
+            
+            JButton selectBtn = new JButton(isSelected[index] ? "SELECTED" : "SELECT");
+            selectBtn.setFont(UITheme.FONT_BUTTON_SMALL);
+            selectBtn.setForeground(UITheme.PRIMARY_WHITE);
+            selectBtn.setContentAreaFilled(false);
+            selectBtn.setOpaque(false);
+            selectBtn.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, UITheme.BORDER_NORMAL));
+            selectBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            heroButtons[index] = selectBtn;
+            
+            selectBtn.addActionListener(e -> {
+                if (isSelected[index]) {
+                    // Deselect
+                    isSelected[index] = false;
+                    selectedHeroes.remove(heroClass);
+                    selectBtn.setText("SELECT");
+                    selectBtn.setForeground(UITheme.PRIMARY_WHITE);
+                    heroCard.setBorder(BorderFactory.createLineBorder(UITheme.BORDER_NORMAL, 2));
+                } else if (selectedHeroes.size() < 4) {
+                    // Select
+                    isSelected[index] = true;
+                    selectedHeroes.add(heroClass);
+                    selectBtn.setText("SELECTED");
+                    selectBtn.setForeground(UITheme.PRIMARY_GREEN);
+                    heroCard.setBorder(BorderFactory.createLineBorder(UITheme.PRIMARY_GREEN, 3));
+                } else {
+                    showStyledMessageDialog(panel, "You can only select 4 heroes!", "Team Full");
+                }
+            });
+            
+            selectBtn.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseEntered(MouseEvent e) {
+                    if (!isSelected[index]) {
+                        selectBtn.setBorder(BorderFactory.createMatteBorder(0, 0, 3, 0, UITheme.BORDER_HIGHLIGHT));
+                    }
+                }
+                
+                @Override
+                public void mouseExited(MouseEvent e) {
+                    if (!isSelected[index]) {
+                        selectBtn.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, UITheme.BORDER_NORMAL));
+                    }
+                }
+            });
+            
+            JPanel infoPanel = new JPanel(new GridLayout(2, 1));
+            infoPanel.setOpaque(false);
+            infoPanel.add(nameLabel);
+            infoPanel.add(roleLabel);
+            
+            heroCard.add(infoPanel, BorderLayout.CENTER);
+            heroCard.add(selectBtn, BorderLayout.SOUTH);
+            
+            heroesPanel.add(heroCard);
+        }
+        
+        JLabel selectedCount = createReadableLabel(
+            "Selected: 0 / 4",
+            UITheme.FONT_TEXT,
+            UITheme.PRIMARY_ORANGE,
+            SwingConstants.CENTER
+        );
+        
+        // Update count label
+        javax.swing.Timer updateTimer = new javax.swing.Timer(100, e -> {
+            selectedCount.setText("Selected: " + selectedHeroes.size() + " / 4");
+            selectedCount.setForeground(selectedHeroes.size() == 4 ? UITheme.PRIMARY_GREEN : UITheme.PRIMARY_ORANGE);
+        });
+        updateTimer.start();
+        
+        JButton confirmBtn = UITheme.createSmallButton("CONFIRM TEAM");
+        confirmBtn.setPreferredSize(new Dimension(200, 45));
+        confirmBtn.addActionListener(e -> {
+            if (selectedHeroes.size() == 4) {
+                if (playerProgress != null) {
+                    playerProgress.setSelectedTeam(selectedHeroes);
+                    saveActiveProfile();
+                    System.out.println("Team confirmed: " + selectedHeroes);
+                }
+                // If there's a pending world, proceed to world story, otherwise go to world select
+                if (pendingWorldId > 0) {
+                    int worldId = pendingWorldId;
+                    System.out.println("Proceeding to World " + worldId + " story");
+                    pendingWorldId = 0; // Clear pending
+                    showWorldStory(worldId);
+                } else {
+                    System.out.println("No pending world, returning to world select");
+                    showScreen(SCREEN_WORLD_SELECT);
+                }
+            } else {
+                showStyledMessageDialog(panel, "Please select exactly 4 heroes!", "Incomplete Team");
+            }
+        });
+        
+        JButton backBtn = UITheme.createSmallButton("BACK");
+        backBtn.setPreferredSize(new Dimension(150, 40));
+        backBtn.addActionListener(e -> {
+            pendingWorldId = 0; // Clear pending
+            showScreen(SCREEN_WORLD_SELECT);
+        });
+        
+        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
+        bottomPanel.setOpaque(false);
+        bottomPanel.add(selectedCount);
+        bottomPanel.add(Box.createHorizontalStrut(30));
+        bottomPanel.add(confirmBtn);
+        bottomPanel.add(backBtn);
+        
+        panel.add(titlePanel, BorderLayout.NORTH);
+        panel.add(heroesPanel, BorderLayout.CENTER);
+        panel.add(bottomPanel, BorderLayout.SOUTH);
+        panel.setName(SCREEN_CHARACTER_SELECT);
+        
+        return panel;
+    }
 
     private JPanel createWorldSelection() {
         // Ensure playerProgress is set - if not, load it from the active profile
@@ -1027,6 +1327,23 @@ public class UnifiedGameUI extends JFrame {
 
         JPanel bottomPanel = new JPanel();
         bottomPanel.setOpaque(false);
+        
+        // Add "Resume Battle" button if there's a saved battle state
+        if (playerProgress != null && playerProgress.hasActiveBattle()) {
+            BattleState battleState = playerProgress.getBattleState();
+            if (battleState != null) {
+                JButton resumeBtn = UITheme.createSmallButton("RESUME BATTLE");
+                resumeBtn.setPreferredSize(new Dimension(180, 40));
+                resumeBtn.setMinimumSize(new Dimension(180, 40));
+                resumeBtn.addActionListener(e -> {
+                    int savedWorldId = battleState.getWorldId();
+                    showBattle(savedWorldId);
+                });
+                bottomPanel.add(resumeBtn);
+                bottomPanel.add(Box.createHorizontalStrut(20));
+            }
+        }
+        
         bottomPanel.add(backBtn);
 
         panel.add(titlePanel, BorderLayout.NORTH);
@@ -1162,7 +1479,17 @@ public class UnifiedGameUI extends JFrame {
             card.addMouseListener(new MouseAdapter() {
                 @Override
                 public void mouseClicked(MouseEvent e) {
-                    showWorldStory(worldId);
+                    // Show character selection first, then proceed to world story
+                    pendingWorldId = worldId;
+                    System.out.println("=== WORLD " + worldId + " CLICKED ===");
+                    System.out.println("Setting pendingWorldId = " + pendingWorldId);
+                    System.out.println("Calling showScreen(" + SCREEN_CHARACTER_SELECT + ")");
+                    
+                    // Refresh and show character selection
+                    refreshCharacterSelection();
+                    
+                    // Directly show the screen (bypass fade for debugging, or use showScreen)
+                    showScreen(SCREEN_CHARACTER_SELECT);
                 }
 
                 @Override
@@ -1496,18 +1823,38 @@ public class UnifiedGameUI extends JFrame {
     // ==================== BATTLE SYSTEM ====================
 
     private JPanel createBattle(int worldId) {
-        playerTeam = createPlayerTeam();
-        currentWavePlan = buildWaveSchedule(worldId);
-        if (currentWavePlan.isEmpty()) {
-            currentWavePlan.add(new WaveEncounter(1, false, legacyEnemyPack(worldId)));
+        // Check if there's a saved battle state to restore
+        final boolean restored;
+        if (playerProgress != null && playerProgress.hasActiveBattle()) {
+            BattleState savedState = playerProgress.getBattleState();
+            if (savedState != null && savedState.getWorldId() == worldId) {
+                boolean restoreResult = restoreBattleState(savedState);
+                restored = restoreResult;
+                if (restored) {
+                    System.out.println("Restored battle state: World " + worldId + ", Wave " + (activeWaveIndex + 1));
+                }
+            } else {
+                restored = false;
+            }
+        } else {
+            restored = false;
         }
-        activeWaveIndex = 0;
-        WaveEncounter openingWave = currentWavePlan.get(0);
-        enemyTeam = openingWave.enemies;
-        applyEnemyScaling(worldId, openingWave);
-        currentPlayerIndex = 0;
-        selectedSkill = null;
-        waitingForTarget = false;
+        
+        // If no saved state or restoration failed, create new battle
+        if (!restored) {
+            playerTeam = createPlayerTeam();
+            currentWavePlan = buildWaveSchedule(worldId);
+            if (currentWavePlan.isEmpty()) {
+                currentWavePlan.add(new WaveEncounter(1, false, legacyEnemyPack(worldId)));
+            }
+            activeWaveIndex = 0;
+            WaveEncounter openingWave = currentWavePlan.get(0);
+            enemyTeam = openingWave.enemies;
+            applyEnemyScaling(worldId, openingWave);
+            currentPlayerIndex = 0;
+            selectedSkill = null;
+            waitingForTarget = false;
+        }
 
         // Dark battle background panel
         JPanel panel = new JPanel(new BorderLayout(10, 10)) {
@@ -1530,8 +1877,19 @@ public class UnifiedGameUI extends JFrame {
         panel.add(createBattleMainArea(), BorderLayout.CENTER);
         panel.add(createBattleBottomDetails(), BorderLayout.SOUTH);
 
+        // Rebuild character panels after restoration
+        final boolean wasRestored = restored;
+        if (wasRestored) {
+            buildBattleCharacterPanels();
+            updateWaveLabel();
+        }
+
         javax.swing.Timer startTimer = new javax.swing.Timer(500, e -> {
-            startBattle();
+            if (wasRestored) {
+                resumeBattle();
+            } else {
+                startBattle();
+            }
             ((javax.swing.Timer) e.getSource()).stop();
         });
         startTimer.setRepeats(false);
@@ -1746,22 +2104,30 @@ public class UnifiedGameUI extends JFrame {
 
     private Character[] createPlayerTeam() {
         List<Character> roster = new ArrayList<>();
-        roster.add(new KaelDraven());
-        roster.add(new VioraNyla());
-        roster.add(new YlonneKryx());
-
-        // Check if Zyra should be unlocked
-        if (playerProgress != null) {
-            // Unlock Zyra if World 2 is cleared (can enter World 3) or if already unlocked
-            if (playerProgress.canEnterWorld(3) && !playerProgress.isZyraUnlocked()) {
-                // World 3 is accessible, which means World 2 is cleared - unlock Zyra
-                playerProgress.unlockZyra();
-                saveActiveProfile(); // Save the unlock
+        
+        // Use selected team from player progress
+        if (playerProgress != null && playerProgress.hasSelectedTeam()) {
+            List<String> selectedTeam = playerProgress.getSelectedTeam();
+            int playerLevel = playerProgress.getPlayerLevel();
+            for (String heroClass : selectedTeam) {
+                try {
+                    Class<?> clazz = Class.forName(heroClass);
+                    Character hero = (Character) clazz.getDeclaredConstructor().newInstance();
+                    hero.syncToLevel(playerLevel);
+                    roster.add(hero);
+                } catch (Exception e) {
+                    System.err.println("Error creating hero: " + heroClass + " - " + e.getMessage());
+                }
             }
-            
-            // Add Zyra if unlocked
-            if (playerProgress.isZyraUnlocked()) {
-                roster.add(new ZyraKathun());
+        } else {
+            // Fallback: use default team if no selection made
+            int playerLevel = playerProgress != null ? playerProgress.getPlayerLevel() : 1;
+            Character[] defaultTeam = {
+                new Ka(), new ZyraKathelDraven(), new VioraNyla(), new YlonneKryx()
+            };
+            for (Character hero : defaultTeam) {
+                hero.syncToLevel(playerLevel);
+                roster.add(hero);
             }
         }
 
@@ -1778,7 +2144,7 @@ public class UnifiedGameUI extends JFrame {
         double manaMultiplier = WORLD_MANA_MULT[index];
         double defenseMultiplier = WORLD_DEF_MULT[index];
         int levelOffset = WORLD_ENEMY_LEVEL_OFFSET[index];
-        
+
         // Calculate average hero HP to scale enemy damage proportionally
         int totalHeroHP = 0;
         int heroCount = 0;
@@ -1878,7 +2244,7 @@ public class UnifiedGameUI extends JFrame {
             message.append("\n\nNew Ally Recruited: Zyra Kathun now joins your team!");
         }
 
-        JOptionPane.showMessageDialog(this, message.toString(), "Victory", JOptionPane.INFORMATION_MESSAGE);
+        showStyledMessageDialog(this, message.toString(), "Victory");
     }
 
     // New battle layout matching reference
@@ -2904,6 +3270,15 @@ public class UnifiedGameUI extends JFrame {
         appendBattleLog(">>> " + playerTeam[0].name + "'s turn\n");
         prepareBattlePlayerTurn();
     }
+    
+    private void resumeBattle() {
+        appendBattleLog("⚔ Battle Resumed! Wave " + (activeWaveIndex + 1) + " / " + currentWavePlan.size());
+        announceCurrentWave();
+        if (playerTeam != null && currentPlayerIndex < playerTeam.length && playerTeam[currentPlayerIndex] != null) {
+            appendBattleLog(">>> " + playerTeam[currentPlayerIndex].name + "'s turn\n");
+        }
+        prepareBattlePlayerTurn();
+    }
 
     private void prepareBattlePlayerTurn() {
         while (currentPlayerIndex < playerTeam.length && !playerTeam[currentPlayerIndex].isAlive()) {
@@ -3234,6 +3609,11 @@ public class UnifiedGameUI extends JFrame {
         setBattleSkillButtonsEnabled(false);
         currentWavePlan.clear();
         activeWaveIndex = 0;
+        
+        // Clear battle state when battle ends
+        if (playerProgress != null) {
+            playerProgress.clearBattleState();
+        }
 
         if (victory) {
             appendBattleLog("\n" + "=".repeat(50));
@@ -3247,7 +3627,7 @@ public class UnifiedGameUI extends JFrame {
             appendBattleLog("💀 DEFEAT... 💀");
             appendBattleLog("=".repeat(50));
 
-            JOptionPane.showMessageDialog(this, "Defeat... Try again!", "Defeat", JOptionPane.WARNING_MESSAGE);
+            showStyledMessageDialog(this, "Defeat... Try again!", "Defeat");
 
             showScreen(SCREEN_WORLD_SELECT);
         }
@@ -3273,6 +3653,16 @@ public class UnifiedGameUI extends JFrame {
     }
 
     private void showPauseMenu() {
+        // Save battle state automatically when pausing (so resume works correctly)
+        if (SCREEN_BATTLE.equals(currentScreen) && playerTeam != null && currentWavePlan != null) {
+            BattleState battleState = captureBattleState();
+            if (playerProgress != null && battleState != null) {
+                playerProgress.setBattleState(battleState);
+                // Don't call saveActiveProfile() here - let user choose to save or not
+                // But we do save the battle state in memory so resume works
+            }
+        }
+        
         // Only show pause when in a "play" screen (battle or world selection/story)
         // but it's fine to allow from anywhere.
         JDialog dialog = new JDialog(this, "Pause", true);
@@ -3312,7 +3702,7 @@ public class UnifiedGameUI extends JFrame {
             appendBattleLog("\n💾 Game saved!");
             // Refresh profile select screen to show updated data
             refreshProfileSelect();
-            JOptionPane.showMessageDialog(dialog, "Game saved successfully!", "Save", JOptionPane.INFORMATION_MESSAGE);
+            showStyledMessageDialog(dialog, "Game saved successfully!", "Save");
         });
         gbc.gridy = 2;
         buttonPanel.add(saveBtn, gbc);
@@ -3516,6 +3906,17 @@ public class UnifiedGameUI extends JFrame {
         if (activeProfile < 0 || playerProgress == null) return;
         // Record save time
         playerProgress.recordSave();
+        
+        // Save battle state if currently in battle
+        if (SCREEN_BATTLE.equals(currentScreen) && playerTeam != null && currentWavePlan != null) {
+            BattleState battleState = captureBattleState();
+            playerProgress.setBattleState(battleState);
+            System.out.println("Saved battle state: World " + selectedWorldId + ", Wave " + (activeWaveIndex + 1));
+        } else {
+            // Clear battle state if not in battle
+            playerProgress.clearBattleState();
+        }
+        
         // Always sync playerProgress changes back to profileSlots before saving
         profileSlots[activeProfile] = playerProgress;
         saveProfile(activeProfile);
@@ -3524,6 +3925,213 @@ public class UnifiedGameUI extends JFrame {
             ", Worlds: " + playerProgress.getClearedWorldCount() + 
             ", Time: " + playerProgress.getFormattedPlayTime() +
             ", Last Save: " + playerProgress.getFormattedLastSaveDate());
+    }
+    
+    /**
+     * Captures the current battle state for saving
+     */
+    private BattleState captureBattleState() {
+        BattleState state = new BattleState();
+        state.setWorldId(selectedWorldId);
+        state.setActiveWaveIndex(activeWaveIndex);
+        state.setCurrentPlayerIndex(currentPlayerIndex);
+        
+        // Save player team state
+        List<BattleState.CharacterData> playerData = new ArrayList<>();
+        if (playerTeam != null) {
+            for (Character c : playerTeam) {
+                if (c != null) {
+                    playerData.add(new BattleState.CharacterData(c));
+                }
+            }
+        }
+        state.setPlayerTeamData(playerData);
+        
+        // Save enemy team state
+        List<BattleState.CharacterData> enemyData = new ArrayList<>();
+        if (enemyTeam != null) {
+            for (Character c : enemyTeam) {
+                if (c != null) {
+                    enemyData.add(new BattleState.CharacterData(c));
+                }
+            }
+        }
+        state.setEnemyTeamData(enemyData);
+        
+        // Save wave plan (remaining waves)
+        List<BattleState.WaveData> waveData = new ArrayList<>();
+        if (currentWavePlan != null && activeWaveIndex < currentWavePlan.size()) {
+            // Save remaining waves (from current wave onwards)
+            for (int i = activeWaveIndex; i < currentWavePlan.size(); i++) {
+                WaveEncounter wave = currentWavePlan.get(i);
+                List<BattleState.CharacterData> waveEnemies = new ArrayList<>();
+                if (wave.enemies != null) {
+                    for (Character c : wave.enemies) {
+                        if (c != null) {
+                            waveEnemies.add(new BattleState.CharacterData(c));
+                        }
+                    }
+                }
+                waveData.add(new BattleState.WaveData(wave.waveNumber, wave.bossWave, waveEnemies));
+            }
+        }
+        state.setWavePlan(waveData);
+        
+        return state;
+    }
+    
+    /**
+     * Restores battle state from saved data
+     */
+    private boolean restoreBattleState(BattleState state) {
+        if (state == null) return false;
+        
+        try {
+            selectedWorldId = state.getWorldId();
+            activeWaveIndex = state.getActiveWaveIndex();
+            currentPlayerIndex = state.getCurrentPlayerIndex();
+            
+            // Restore player team
+            List<BattleState.CharacterData> playerData = state.getPlayerTeamData();
+            if (playerData != null && !playerData.isEmpty()) {
+                playerTeam = new Character[playerData.size()];
+                for (int i = 0; i < playerData.size(); i++) {
+                    BattleState.CharacterData data = playerData.get(i);
+                    Character hero = createCharacterFromData(data);
+                    if (hero != null) {
+                        playerTeam[i] = hero;
+                    }
+                }
+            }
+            
+            // Restore wave plan
+            List<BattleState.WaveData> waveData = state.getWavePlan();
+            if (waveData != null && !waveData.isEmpty()) {
+                currentWavePlan = new ArrayList<>();
+                for (BattleState.WaveData wd : waveData) {
+                    Character[] enemies = new Character[wd.getEnemies().size()];
+                    for (int i = 0; i < wd.getEnemies().size(); i++) {
+                        BattleState.CharacterData ed = wd.getEnemies().get(i);
+                        Character enemy = createCharacterFromData(ed);
+                        if (enemy != null) {
+                            enemies[i] = enemy;
+                        }
+                    }
+                    currentWavePlan.add(new WaveEncounter(wd.getWaveNumber(), wd.isBossWave(), enemies));
+                }
+            }
+            
+            // Restore current enemy team from saved data (don't re-apply scaling - use exact saved state)
+            if (state.getEnemyTeamData() != null && !state.getEnemyTeamData().isEmpty()) {
+                // Use saved enemy team data directly - this preserves exact HP, mana, and stats
+                List<BattleState.CharacterData> enemyData = state.getEnemyTeamData();
+                enemyTeam = new Character[enemyData.size()];
+                for (int i = 0; i < enemyData.size(); i++) {
+                    BattleState.CharacterData ed = enemyData.get(i);
+                    Character enemy = createCharacterFromData(ed);
+                    if (enemy != null) {
+                        // Double-check: ensure HP is exactly as saved (defensive programming)
+                        if (ed.getCurrentHP() != enemy.currentHP) {
+                            System.out.println("Warning: Restored enemy HP mismatch for " + enemy.name + 
+                                " - saved: " + ed.getCurrentHP() + ", restored: " + enemy.currentHP + 
+                                " - correcting...");
+                            enemy.currentHP = ed.getCurrentHP();
+                        }
+                        enemyTeam[i] = enemy;
+                    }
+                }
+            } else if (currentWavePlan != null && !currentWavePlan.isEmpty()) {
+                // Fallback: use first wave from plan (shouldn't happen if save worked correctly)
+                WaveEncounter currentWave = currentWavePlan.get(0);
+                enemyTeam = currentWave.enemies;
+                // Don't re-apply scaling - enemies are already scaled from wave plan
+            }
+            
+            selectedSkill = null;
+            waitingForTarget = false;
+            
+            return true;
+        } catch (Exception e) {
+            System.err.println("Error restoring battle state: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    /**
+     * Creates a Character instance from saved CharacterData
+     */
+    private Character createCharacterFromData(BattleState.CharacterData data) {
+        if (data == null || data.getClassName() == null) return null;
+        
+        try {
+            Class<?> clazz = Class.forName(data.getClassName());
+            Character character;
+            
+            // Handle DynamicEnemy specially (requires factory parameters)
+            if (data.getClassName().contains("DynamicEnemy")) {
+                // Create a DynamicEnemy with a basic attack skill
+                // Use maxHP for constructor (Character constructor sets currentHP = maxHP, which we'll override)
+                character = new DynamicEnemy(
+                    data.getName(),
+                    data.getMaxHP(), // Use maxHP for constructor
+                    data.getMaxMana(), // Use maxMana for constructor
+                    data.getBaseAttack(),
+                    data.getBaseDefense(),
+                    data.getBaseSpeed(),
+                    () -> new SavageSwipeSkill("Strike", 1.0)
+                );
+                // Constructor sets currentHP = maxHP, so we need to restore currentHP after
+            } else {
+                // Try to create using no-arg constructor
+                character = (Character) clazz.getDeclaredConstructor().newInstance();
+            }
+            
+            // Restore all stats - IMPORTANT: Restore maxHP first, then currentHP to ensure proper state
+            character.name = data.getName();
+            character.level = data.getLevel();
+            character.maxHP = data.getMaxHP();
+            character.maxMana = data.getMaxMana();
+            character.baseAttack = data.getBaseAttack();
+            character.baseDefense = data.getBaseDefense();
+            character.baseSpeed = data.getBaseSpeed();
+            
+            // Restore current values - use exact saved values (they should already be correct)
+            character.currentHP = data.getCurrentHP();
+            character.currentMana = data.getCurrentMana();
+            character.currentAttack = data.getCurrentAttack();
+            character.currentDefense = data.getCurrentDefense();
+            character.currentSpeed = data.getCurrentSpeed();
+            
+            // Ensure currentHP and currentMana don't exceed max values (safety check)
+            if (character.currentHP > character.maxHP) {
+                character.currentHP = character.maxHP;
+            }
+            if (character.currentMana > character.maxMana) {
+                character.currentMana = character.maxMana;
+            }
+            
+            // Set isAlive based on currentHP (ensure consistency)
+            character.isAlive = data.isAlive() && character.currentHP > 0;
+            
+            // Re-initialize skills (they're not saved, but we need them)
+            // For DynamicEnemy, skills are already set in constructor, so skip
+            if (!data.getClassName().contains("DynamicEnemy")) {
+                character.initializeSkills();
+            }
+            
+            // Final verification: ensure currentHP is exactly as saved (skills shouldn't modify HP)
+            character.currentHP = data.getCurrentHP();
+            if (character.currentHP > character.maxHP) {
+                character.currentHP = character.maxHP;
+            }
+            
+            return character;
+        } catch (Exception e) {
+            System.err.println("Error creating character from data: " + data.getClassName() + " - " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
     }
 
     private void saveProfile(int slotIndex) {
@@ -3700,6 +4308,103 @@ public class UnifiedGameUI extends JFrame {
         Map<Character, Integer> hpBefore = snapshotHp();
         skill.execute(user, targets);
         logDamageDelta(user.name, skill.getName(), hpBefore);
+    }
+
+    /**
+     * Shows a styled message dialog that matches the game's dark theme
+     * Handles long messages with proper wrapping and auto-sizing
+     */
+    private void showStyledMessageDialog(Component parent, String message, String title) {
+        // Get the parent frame, with fallback to this window
+        Frame parentFrame = null;
+        if (parent != null) {
+            Window window = SwingUtilities.getWindowAncestor(parent);
+            if (window instanceof Frame) {
+                parentFrame = (Frame) window;
+            }
+        }
+        if (parentFrame == null) {
+            parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
+        }
+        
+        JDialog messageDialog = new JDialog(parentFrame, title, true);
+        messageDialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        
+        // Create styled panel with lighter background for better readability
+        JPanel panel = new JPanel(new BorderLayout(15, 15));
+        panel.setOpaque(true);
+        panel.setBackground(UITheme.BG_PANEL); // Lighter than BG_DARK_TEAL for better contrast
+        panel.setBorder(new EmptyBorder(25, 30, 25, 30));
+        
+        // Message text area with wrapping for long messages
+        JTextArea messageArea = new JTextArea(message);
+        messageArea.setEditable(false);
+        messageArea.setOpaque(false);
+        messageArea.setLineWrap(true);
+        messageArea.setWrapStyleWord(true);
+        messageArea.setFont(UITheme.FONT_TEXT.deriveFont(Font.PLAIN, 15f));
+        messageArea.setForeground(UITheme.PRIMARY_WHITE);
+        messageArea.setBackground(UITheme.BG_PANEL);
+        
+        // Calculate optimal size based on message length
+        FontMetrics fm = messageArea.getFontMetrics(messageArea.getFont());
+        int maxWidth = 500;
+        int charWidth = fm.charWidth('A');
+        int lines = 1;
+        int currentLineWidth = 0;
+        
+        for (char c : message.toCharArray()) {
+            if (c == '\n') {
+                lines++;
+                currentLineWidth = 0;
+            } else {
+                currentLineWidth += fm.charWidth(c);
+                if (currentLineWidth > maxWidth - 40) {
+                    lines++;
+                    currentLineWidth = fm.charWidth(c);
+                }
+            }
+        }
+        
+        int dialogWidth = Math.min(550, Math.max(350, (int)(message.length() * charWidth * 0.6) + 60));
+        int dialogHeight = Math.min(400, Math.max(120, lines * 25 + 100));
+        
+        messageDialog.setSize(dialogWidth, dialogHeight);
+        messageDialog.setLocationRelativeTo(parent != null ? parent : this);
+        
+        // Scroll pane for very long messages
+        JScrollPane scrollPane = new JScrollPane(messageArea);
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+        scrollPane.setBorder(null);
+        scrollPane.setPreferredSize(new Dimension(dialogWidth - 60, dialogHeight - 100));
+        
+        // OK button styled to match game theme
+        JButton okButton = UITheme.createSmallButton("OK");
+        okButton.setPreferredSize(new Dimension(120, 40));
+        okButton.addActionListener(e -> messageDialog.dispose());
+        
+        // Make Enter key close the dialog
+        messageDialog.getRootPane().setDefaultButton(okButton);
+        messageDialog.getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+            .put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "close");
+        messageDialog.getRootPane().getActionMap().put("close", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                messageDialog.dispose();
+            }
+        });
+        
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        buttonPanel.setOpaque(false);
+        buttonPanel.add(okButton);
+        
+        panel.add(scrollPane, BorderLayout.CENTER);
+        panel.add(buttonPanel, BorderLayout.SOUTH);
+        
+        messageDialog.setContentPane(panel);
+        messageDialog.setResizable(false);
+        messageDialog.setVisible(true);
     }
 
     // ==================== MAIN METHOD ====================

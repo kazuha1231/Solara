@@ -1,0 +1,31 @@
+package com.defendersofsolara.skills.seraphine;
+
+import com.defendersofsolara.core.Character;
+import com.defendersofsolara.core.Skill;
+import com.defendersofsolara.core.StatusEffect;
+import com.defendersofsolara.core.TargetType;
+
+public class AscensionUltimate extends Skill {
+    public AscensionUltimate() {
+        name = "Ascension";
+        manaCost = 220;
+        cooldown = 8;
+        description = "Massive heal + buffs for all allies";
+        targetType = TargetType.ALL_ALLIES;
+    }
+
+    @Override
+    public void execute(Character user, Character[] targets) {
+        user.currentMana -= manaCost;
+        int healAmount = (int) (user.maxHP * 0.6);
+        int buffAmount = scaleAmount(user, 100, 5);
+        for (Character ally : targets) {
+            if (ally != null && ally.isAlive()) {
+                ally.restoreHealth(healAmount);
+                ally.applyEffect(new StatusEffect("buff", buffAmount, 3));
+            }
+        }
+        resetCooldown();
+    }
+}
+

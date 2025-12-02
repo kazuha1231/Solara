@@ -1,6 +1,28 @@
 [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
 eclipse.project.name = appName + '-core'
 
+// Create a fat JAR task with all dependencies
+task fatJar(type: Jar) {
+    baseName = 'defenders-of-solara'
+    version = '1.0.0'
+    classifier = 'all'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    
+    manifest {
+        attributes 'Main-Class': 'com.defendersofsolara.ui.UnifiedGameUI'
+    }
+    
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    
+    from sourceSets.main.output
+    from sourceSets.main.resources
+    
+    // Exclude signature files to avoid conflicts
+    exclude 'META-INF/*.RSA', 'META-INF/*.SF', 'META-INF/*.DSA'
+}
+
 dependencies {
   api "com.badlogicgames.ashley:ashley:$ashleyVersion"
   api "com.badlogicgames.box2dlights:box2dlights:$box2dlightsVersion"
