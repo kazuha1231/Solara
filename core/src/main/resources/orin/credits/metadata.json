@@ -1,0 +1,310 @@
+{
+  "exportTimestamp": "2025-12-02T18-06-44",
+  "bodyType": "male",
+  "standardAnimations": {
+    "exported": {
+      "spellcast": [
+        "010 body_color__light_.png",
+        "100 human_male__light_.png",
+        "101 neutral__light_.png",
+        "130 wizard_hat_base__black_.png",
+        "140 s_staff__iron_.png",
+        "025 basic_boots__black_.png",
+        "035 shortsleeve__black_.png",
+        "070 leather_belt__brown_.png",
+        "020 pants__black_.png",
+        "085 solid__black_.png"
+      ],
+      "thrust": [
+        "010 body_color__light_.png",
+        "100 human_male__light_.png",
+        "101 neutral__light_.png",
+        "130 wizard_hat_base__black_.png",
+        "140 s_staff__iron_.png",
+        "025 basic_boots__black_.png",
+        "035 shortsleeve__black_.png",
+        "070 leather_belt__brown_.png",
+        "020 pants__black_.png",
+        "085 solid__black_.png"
+      ],
+      "walk": [
+        "010 body_color__light_.png",
+        "100 human_male__light_.png",
+        "101 neutral__light_.png",
+        "130 wizard_hat_base__black_.png",
+        "140 s_staff__iron_.png",
+        "025 basic_boots__black_.png",
+        "035 shortsleeve__black_.png",
+        "070 leather_belt__brown_.png",
+        "020 pants__black_.png",
+        "085 solid__black_.png"
+      ],
+      "slash": [
+        "010 body_color__light_.png",
+        "100 human_male__light_.png",
+        "101 neutral__light_.png",
+        "130 wizard_hat_base__black_.png",
+        "140 s_staff__iron_.png",
+        "025 basic_boots__black_.png",
+        "035 shortsleeve__black_.png",
+        "070 leather_belt__brown_.png",
+        "020 pants__black_.png",
+        "085 solid__black_.png"
+      ],
+      "shoot": [
+        "010 body_color__light_.png",
+        "100 human_male__light_.png",
+        "101 neutral__light_.png",
+        "130 wizard_hat_base__black_.png",
+        "140 s_staff__iron_.png",
+        "025 basic_boots__black_.png",
+        "035 shortsleeve__black_.png",
+        "070 leather_belt__brown_.png",
+        "020 pants__black_.png",
+        "085 solid__black_.png"
+      ],
+      "hurt": [
+        "010 body_color__light_.png",
+        "100 human_male__light_.png",
+        "101 neutral__light_.png",
+        "130 wizard_hat_base__black_.png",
+        "140 s_staff__iron_.png",
+        "025 basic_boots__black_.png",
+        "035 shortsleeve__black_.png",
+        "070 leather_belt__brown_.png",
+        "020 pants__black_.png",
+        "085 solid__black_.png"
+      ],
+      "climb": [
+        "010 body_color__light_.png",
+        "100 human_male__light_.png",
+        "101 neutral__light_.png",
+        "130 wizard_hat_base__black_.png",
+        "140 s_staff__iron_.png",
+        "025 basic_boots__black_.png",
+        "035 shortsleeve__black_.png",
+        "070 leather_belt__brown_.png",
+        "020 pants__black_.png",
+        "085 solid__black_.png"
+      ],
+      "idle": [
+        "010 body_color__light_.png",
+        "100 human_male__light_.png",
+        "101 neutral__light_.png",
+        "130 wizard_hat_base__black_.png",
+        "140 s_staff__iron_.png",
+        "025 basic_boots__black_.png",
+        "035 shortsleeve__black_.png",
+        "070 leather_belt__brown_.png",
+        "020 pants__black_.png",
+        "085 solid__black_.png"
+      ],
+      "jump": [
+        "010 body_color__light_.png",
+        "100 human_male__light_.png",
+        "101 neutral__light_.png",
+        "130 wizard_hat_base__black_.png",
+        "140 s_staff__iron_.png",
+        "025 basic_boots__black_.png",
+        "035 shortsleeve__black_.png",
+        "070 leather_belt__brown_.png",
+        "020 pants__black_.png",
+        "085 solid__black_.png"
+      ],
+      "sit": [
+        "010 body_color__light_.png",
+        "100 human_male__light_.png",
+        "101 neutral__light_.png",
+        "130 wizard_hat_base__black_.png",
+        "140 s_staff__iron_.png",
+        "025 basic_boots__black_.png",
+        "035 shortsleeve__black_.png",
+        "070 leather_belt__brown_.png",
+        "020 pants__black_.png",
+        "085 solid__black_.png"
+      ],
+      "emote": [
+        "010 body_color__light_.png",
+        "100 human_male__light_.png",
+        "101 neutral__light_.png",
+        "130 wizard_hat_base__black_.png",
+        "140 s_staff__iron_.png",
+        "025 basic_boots__black_.png",
+        "035 shortsleeve__black_.png",
+        "070 leather_belt__brown_.png",
+        "020 pants__black_.png",
+        "085 solid__black_.png"
+      ],
+      "run": [
+        "010 body_color__light_.png",
+        "100 human_male__light_.png",
+        "101 neutral__light_.png",
+        "130 wizard_hat_base__black_.png",
+        "140 s_staff__iron_.png",
+        "025 basic_boots__black_.png",
+        "035 shortsleeve__black_.png",
+        "070 leather_belt__brown_.png",
+        "020 pants__black_.png",
+        "085 solid__black_.png"
+      ],
+      "watering": [
+        "010 body_color__light_.png",
+        "100 human_male__light_.png",
+        "101 neutral__light_.png",
+        "130 wizard_hat_base__black_.png",
+        "140 s_staff__iron_.png",
+        "025 basic_boots__black_.png",
+        "035 shortsleeve__black_.png",
+        "070 leather_belt__brown_.png",
+        "020 pants__black_.png",
+        "085 solid__black_.png"
+      ],
+      "combat": [
+        "010 body_color__light_.png",
+        "100 human_male__light_.png",
+        "101 neutral__light_.png",
+        "130 wizard_hat_base__black_.png",
+        "140 s_staff__iron_.png",
+        "025 basic_boots__black_.png",
+        "035 shortsleeve__black_.png",
+        "070 leather_belt__brown_.png",
+        "020 pants__black_.png",
+        "085 solid__black_.png"
+      ],
+      "1h_slash": [
+        "010 body_color__light_.png",
+        "100 human_male__light_.png",
+        "101 neutral__light_.png",
+        "130 wizard_hat_base__black_.png",
+        "140 s_staff__iron_.png",
+        "025 basic_boots__black_.png",
+        "035 shortsleeve__black_.png",
+        "070 leather_belt__brown_.png",
+        "020 pants__black_.png",
+        "085 solid__black_.png"
+      ],
+      "1h_backslash": [
+        "010 body_color__light_.png",
+        "100 human_male__light_.png",
+        "101 neutral__light_.png",
+        "130 wizard_hat_base__black_.png",
+        "140 s_staff__iron_.png",
+        "025 basic_boots__black_.png",
+        "035 shortsleeve__black_.png",
+        "070 leather_belt__brown_.png",
+        "020 pants__black_.png",
+        "085 solid__black_.png"
+      ],
+      "1h_halfslash": [
+        "010 body_color__light_.png",
+        "100 human_male__light_.png",
+        "101 neutral__light_.png",
+        "130 wizard_hat_base__black_.png",
+        "140 s_staff__iron_.png",
+        "025 basic_boots__black_.png",
+        "035 shortsleeve__black_.png",
+        "070 leather_belt__brown_.png",
+        "020 pants__black_.png",
+        "085 solid__black_.png"
+      ]
+    },
+    "failed": {
+      "spellcast": [],
+      "thrust": [],
+      "walk": [],
+      "slash": [],
+      "shoot": [],
+      "hurt": [],
+      "climb": [],
+      "idle": [],
+      "jump": [],
+      "sit": [],
+      "emote": [],
+      "run": [],
+      "watering": [],
+      "combat": [],
+      "1h_slash": [],
+      "1h_backslash": [],
+      "1h_halfslash": []
+    }
+  },
+  "customAnimations": {
+    "exported": {
+      "slash": [],
+      "slash_oversize": [
+        "140 weapon_blunt_mace_.png",
+        "140 weapon_blunt_mace_.png"
+      ],
+      "walk_128": [
+        "0-1 weapon_ranged_bow_great_.png",
+        "0-1 weapon_ranged_bow_great_.png"
+      ],
+      "walk": [],
+      "slash_128": [
+        "140 tool_smash_.png",
+        "140 tool_smash_.png"
+      ],
+      "thrust_oversize": [
+        "140 weapon_magic_s_.png",
+        "140 weapon_magic_s_.png"
+      ],
+      "thrust": []
+    },
+    "failed": {
+      "slash": [
+        "085 cape_solid_.png",
+        "140 weapon_blunt_mace_.png",
+        "010 body_.png",
+        "020 legs_armour_.png",
+        "025 feet_boots_basic_.png",
+        "035 torso_clothes_longsleeve_.png",
+        "060 torso_armour_leather_.png",
+        "085 cape_solid_.png",
+        "090 neck_capetie_.png",
+        "100 heads_human_male_.png",
+        "101 face_neutral_.png",
+        "139 hat_accessory_wings_.png",
+        "130 hat_helmet_close_.png",
+        "139 hat_accessory_wings_.png",
+        "140 weapon_blunt_mace_.png",
+        "010 body_.png",
+        "020 legs_pantaloons_.png",
+        "025 feet_boots_basic_.png",
+        "035 torso_clothes_longsleeve_.png",
+        "100 heads_human_male_.png",
+        "101 face_neutral_.png",
+        "140 tool_smash_.png"
+      ],
+      "walk": [
+        "100 shadow_.png",
+        "085 cape_solid_.png",
+        "010 body_.png",
+        "020 legs_pants2_.png",
+        "025 feet_boots_basic_.png",
+        "035 torso_clothes_longsleeve2_vneck_.png",
+        "065 belt_obi_.png",
+        "070 arms_gloves_.png",
+        "085 cape_solid_.png",
+        "100 heads_human_male_.png",
+        "101 face_neutral_.png",
+        "130 hat_bicorne_athwart_commodore_.png"
+      ],
+      "thrust": [
+        "085 cape_solid_.png",
+        "140 weapon_magic_s_.png",
+        "010 body_.png",
+        "020 legs_pants_.png",
+        "025 feet_boots_basic_.png",
+        "035 torso_clothes_shortsleeve_.png",
+        "070 belt_leather_.png",
+        "085 cape_solid_.png",
+        "100 heads_human_male_.png",
+        "101 face_neutral_.png",
+        "130 hat_magic_wizard_.png",
+        "140 weapon_magic_s_.png"
+      ]
+    }
+  },
+  "frameSize": 64,
+  "frameCounts": {}
+}

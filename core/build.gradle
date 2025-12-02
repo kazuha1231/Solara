@@ -48,6 +48,7 @@ dependencies {
   api "com.github.tommyettinger:freetypist:$freetypistVersion"
   api "com.github.tommyettinger:regexodus:$regExodusVersion"
   api "com.github.tommyettinger:textratypist:$textratypistVersion"
+  api "com.google.code.gson:gson:$gsonVersion"
   api "com.kotcrab.vis:vis-ui:$visUiVersion"
   api "io.github.libktx:ktx-actors:$ktxVersion"
   api "io.github.libktx:ktx-ai:$ktxVersion"

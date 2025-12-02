@@ -90,8 +90,7 @@ class ProfileUI extends JPanel {
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
-                // Use nearest neighbor for pixel-art look
-                g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+                FontRenderingUtil.applyMixedRenderingHints(g2);
                 
                 // Semi-transparent background with very low opacity (matching world selection)
                 Color bg;
@@ -248,9 +247,7 @@ class ProfileUI extends JPanel {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2d = (Graphics2D) g.create();
-                g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-                g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-                g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                FontRenderingUtil.applyTextRenderingHints(g2d);
                 g2d.setFont(getFont());
                 
                 FontMetrics fm = g2d.getFontMetrics();

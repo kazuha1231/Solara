@@ -112,10 +112,8 @@ class MenuUI extends JPanel {
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        Graphics2D g2d = (Graphics2D) g;
-
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        Graphics2D g2d = (Graphics2D) g.create();
+        FontRenderingUtil.applyMixedRenderingHints(g2d);
 
         // Use menu.png background from parent
         if (parent != null) {
@@ -125,6 +123,11 @@ class MenuUI extends JPanel {
             g2d.setColor(UITheme.BG_DARK_TEAL);
             g2d.fillRect(0, 0, getWidth(), getHeight());
         }
+        
+        // Add dark overlay (same as world selection but brighter - less opacity)
+        // World selection uses alpha 200, main menu uses alpha 100 for brightness
+        g2d.setColor(new Color(0, 0, 0, 100));
+        g2d.fillRect(0, 0, getWidth(), getHeight());
 
         // Title + subtitle
         drawTitle(g2d);
@@ -135,15 +138,15 @@ class MenuUI extends JPanel {
         drawButton(g2d, optionsBtn);
         drawButton(g2d, creditsBtn);
         drawButton(g2d, exitBtn);
+        
+        g2d.dispose();
     }
 
     private void drawTitle(Graphics2D g2d) {
         int centerX = getWidth() / 2;
         int top = 150;
 
-        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        // Font rendering hints already applied in paintComponent
 
         // Main title - beautiful white text with divider fade underline
         Font titleFont = new Font(Font.SANS_SERIF, Font.BOLD, 48);

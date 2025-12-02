@@ -39,8 +39,8 @@ public class UIVisual {
         @Override
         public void paintComponent(Graphics g) {
             super.paintComponent(g);
-            Graphics2D g2d = (Graphics2D) g;
-            g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            Graphics2D g2d = (Graphics2D) g.create();
+            FontRenderingUtil.applyMixedRenderingHints(g2d);
             // PNG or fallback
             if (bgImage != null) {
                 int pw = getWidth(), ph = getHeight(), iw = bgImage.getWidth(), ih = bgImage.getHeight();
@@ -55,6 +55,7 @@ public class UIVisual {
             // Overlay for readability
             g2d.setColor(new Color(0, 0, 0, 60));
             g2d.fillRect(0, 0, getWidth(), getHeight());
+            g2d.dispose();
         }
     }
     // === HEX/SIDE BUTTONS, LOCK SUPPORT, TECH CORNER DECOR ===

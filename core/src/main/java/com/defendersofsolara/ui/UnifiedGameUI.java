@@ -506,6 +506,7 @@ public class UnifiedGameUI extends JFrame {
         label.setFont(font);
         label.setForeground(color);
         label.setOpaque(false);
+        label.setHorizontalAlignment(alignment);
         return label;
     }
     
@@ -524,17 +525,19 @@ public class UnifiedGameUI extends JFrame {
         String textAlign = alignment == SwingConstants.CENTER ? "center" : 
                           alignment == SwingConstants.RIGHT ? "right" : "left";
         
-        // Use table with center alignment and proper text alignment
-        String htmlText = "<html><body style='text-align: center; width: " + maxWidth + "px;'>" +
-                         "<div style='color: " + hexColor + "; " +
+        // Use table with width constraint and center alignment - this is more reliable for Swing HTML
+        // Center the table within the label and ensure text alignment
+        String htmlText = "<html><body style='text-align: center; margin: 0; padding: 0;'>" +
+                         "<table width='" + maxWidth + "' cellpadding='0' cellspacing='0' align='center'>" +
+                         "<tr><td align='" + textAlign + "' " +
+                         "style='color: " + hexColor + "; " +
                          "font-family: " + font.getFamily() + "; " +
                          "font-size: " + font.getSize() + "pt; " +
                          "font-weight: " + (font.isBold() ? "bold" : "normal") + "; " +
-                         "text-align: " + textAlign + "; " +
                          "word-wrap: break-word; " +
                          "overflow-wrap: break-word;'>" + 
                          escapedText + 
-                         "</div></body></html>";
+                         "</td></tr></table></body></html>";
         
         JLabel label = new JLabel(htmlText, SwingConstants.CENTER);
         label.setFont(font);
@@ -542,7 +545,8 @@ public class UnifiedGameUI extends JFrame {
         label.setOpaque(false);
         label.setHorizontalAlignment(SwingConstants.CENTER);
         label.setAlignmentX(Component.CENTER_ALIGNMENT);
-        // Set maximum width to ensure wrapping
+        // Set preferred and maximum width to ensure wrapping and centering
+        label.setPreferredSize(new Dimension(maxWidth, label.getPreferredSize().height));
         label.setMaximumSize(new Dimension(maxWidth, Integer.MAX_VALUE));
         return label;
     }
@@ -593,11 +597,11 @@ public class UnifiedGameUI extends JFrame {
     private void loadWorldIcons() {
         worldIcons.clear();
         String[] resources = {
-            "/image/VerdantCatacombs.gif",
-            "/image/InfernalArmory.gif",
-            "/image/HourglassLabyrinth.gif",
-            "/image/ObsidianSanctum.gif",
-            "/image/HallowedCitadel.gif"
+            "/image/AetherionWorld.gif",
+            "/image/ChronovaleWorld.gif",
+            "/image/ElarionWorld.gif",
+            "/image/GravemireWorld.gif",
+            "/image/Umbros.gif"
         };
         System.out.println("Loading world icons...");
         for (int i = 0; i < resources.length; i++) {
@@ -741,7 +745,7 @@ public class UnifiedGameUI extends JFrame {
     // ==================== CREDITS ====================
 
     private JPanel createCreditsMenu() {
-        JPanel panel = new JPanel() {
+        JPanel panel = new JPanel(new BorderLayout(10, 10)) {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
@@ -759,38 +763,100 @@ public class UnifiedGameUI extends JFrame {
                 g2d.setComposite(AlphaComposite.SrcOver);
             }
         };
-        panel.setLayout(new GridBagLayout());
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0;
+        panel.setOpaque(false);
 
+        // Title and Credits
         JLabel credits = new JLabel(
             "<html><center>" +
                 "<font size='6' color='#FFFFFF'><b>🏰 DEFENDERS OF SOLARA: SHATTERED DUNGEONS OF ELDRALUNE</b></font><br><br>" +
                 "<font size='4' color='#FFFFFF'>" +
-                "<b>Group Leader:</b><br>" +
-                "Pansacala, Shon Warten N.<br><br>" +
-                "<b>Members:</b><br>" +
+                "<b>Developers:</b><br>" +
+                "Pansacala, Shon Warten N.<br>" +
                 "Escuza, Vienn Pius M.<br>" +
                 "Yohbuo, Denzel<br>" +
                 "Bernoy, Kim Kyle M.<br>" +
                 "Tura, Fuchinie M.<br><br>" +
-                "<b>Version:</b> 1<br><br>" +
+                "<b>Aided by:</b> CursorAI<br><br>" +
+                "<b>Version:</b> 1<br>" +
                 "<b>Engine:</b> Java Swing<br>" +
-                "<b>Theme:</b> The Shattered Dungeons of Eldralune" +
+                "<b>Theme:</b> The Shattered Dungeons of Eldralune<br><br>" +
+                "<b>SPRITE CREDITS:</b><br><br>" +
+                "<font size='3'>" +
+                "<b>Licenses:</b><br>" +
+                "• OGA-BY 3.0<br>" +
+                "• CC-BY-SA 3.0<br>" +
+                "• GPL 3.0<br><br>" +
+                "<b>Authors:</b><br>" +
+                "• bluecarrot16<br>" +
+                "• Evert<br>" +
+                "• TheraHedwig<br>" +
+                "• Benjamin K. Smith (BenCreating)<br>" +
+                "• MuffinElZangano<br>" +
+                "• Durrani<br>" +
+                "• Pierre Vigier (pvigier)<br>" +
+                "• Eliza Wyatt (ElizaWy)<br>" +
+                "• Matthew Krohn (makrohn)<br>" +
+                "• Johannes Sjölund (wulax)<br>" +
+                "• Stephen Challener (Redshrike)<br><br>" +
+                "<b>Links:</b><br>" +
+                "• <a href='https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles' style='color:#C2A36A'>https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles</a><br>" +
+                "• <a href='https://opengameart.org/content/lpc-medieval-fantasy-character-sprites' style='color:#C2A36A'>https://opengameart.org/content/lpc-medieval-fantasy-character-sprites</a><br>" +
+                "• <a href='https://opengameart.org/content/lpc-ladies' style='color:#C2A36A'>https://opengameart.org/content/lpc-ladies</a><br>" +
+                "• <a href='https://opengameart.org/content/lpc-teen-unisex-base-clothes' style='color:#C2A36A'>https://opengameart.org/content/lpc-teen-unisex-base-clothes</a><br>" +
+                "• <a href='https://opengameart.org/content/lpc-jump-expanded' style='color:#C2A36A'>https://opengameart.org/content/lpc-jump-expanded</a><br>" +
+                "• <a href='https://opengameart.org/content/lpc-revised-character-basics' style='color:#C2A36A'>https://opengameart.org/content/lpc-revised-character-basics</a><br>" +
+                "• <a href='https://opengameart.org/content/lpc-be-seated' style='color:#C2A36A'>https://opengameart.org/content/lpc-be-seated</a><br>" +
+                "• <a href='https://gitlab.com/vagabondgame/lpc-characters' style='color:#C2A36A'>https://gitlab.com/vagabondgame/lpc-characters</a><br>" +
+                "• <a href='https://opengameart.org/content/lpc-male-jumping-animation-by-durrani' style='color:#C2A36A'>https://opengameart.org/content/lpc-male-jumping-animation-by-durrani</a><br>" +
+                "• <a href='https://opengameart.org/content/lpc-jump-expanded' style='color:#C2A36A'>https://opengameart.org/content/lpc-jump-expanded</a><br>" +
+                "</font>" +
                 "</font></center></html>"
         );
         credits.setOpaque(false);
-        gbc.gridy = 0;
-        panel.add(credits, gbc);
+        credits.setHorizontalAlignment(SwingConstants.CENTER);
+        credits.setFont(UITheme.FONT_TEXT.deriveFont(14f));
+        
+        // Make links clickable
+        credits.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                try {
+                    java.awt.Desktop.getDesktop().browse(new java.net.URI("https://opengameart.org"));
+                } catch (Exception ex) {
+                    // Ignore if can't open browser
+                }
+            }
+        });
+        
+        // Scrollable panel for credits
+        JScrollPane scrollPane = new JScrollPane(credits);
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        
+        // Style the scrollbar
+        scrollPane.getVerticalScrollBar().setUI(new javax.swing.plaf.basic.BasicScrollBarUI() {
+            @Override
+            protected void configureScrollBarColors() {
+                this.thumbColor = UITheme.BRASS;
+                this.trackColor = new Color(30, 30, 30);
+            }
+        });
 
+        panel.add(scrollPane, BorderLayout.CENTER);
+        
         JButton backBtn = UITheme.createSmallButton("BACK");
         backBtn.addActionListener(e -> returnToMainMenu());
-        gbc.gridy = 1;
-        gbc.insets = new Insets(30, 15, 15, 15);
-        panel.add(backBtn, gbc);
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setOpaque(false);
+        buttonPanel.add(backBtn);
+        panel.add(buttonPanel, BorderLayout.SOUTH);
 
         return panel;
     }
+    
 
     // ==================== SETTINGS ====================
 
@@ -1039,6 +1105,25 @@ public class UnifiedGameUI extends JFrame {
 
     // ==================== WORLD SELECTION ====================
 
+    /**
+     * Maps hero class names to their resource folder paths.
+     * This mapping is used to load hero sprite animations.
+     */
+    private String getHeroResourcePath(String heroClass) {
+        // Map hero class names to their resource folder paths
+        Map<String, String> heroResourceMap = new HashMap<>();
+        heroResourceMap.put("com.defendersofsolara.characters.heroes.Ka", "/ka/");
+        heroResourceMap.put("com.defendersofsolara.characters.heroes.ZyraKathelDraven", "/zyra/");
+        heroResourceMap.put("com.defendersofsolara.characters.heroes.Lyra", "/lyra/");
+        heroResourceMap.put("com.defendersofsolara.characters.heroes.YlonneKryx", "/ylonne/");
+        heroResourceMap.put("com.defendersofsolara.characters.heroes.Seraphina", "/serphina/");
+        heroResourceMap.put("com.defendersofsolara.characters.heroes.DravikThorn", "/dravik/");
+        heroResourceMap.put("com.defendersofsolara.characters.heroes.Kaelen", "/kaelen/");
+        heroResourceMap.put("com.defendersofsolara.characters.heroes.OrinKaelus", "/orin/");
+        
+        return heroResourceMap.getOrDefault(heroClass, "/ka/"); // Default to ka if not found
+    }
+    
     private JPanel createCharacterSelection() {
         JPanel panel = new JPanel(new BorderLayout(10, 10)) {
             @Override
@@ -1077,11 +1162,11 @@ public class UnifiedGameUI extends JFrame {
         String[] heroClasses = {
             "com.defendersofsolara.characters.heroes.Ka",
             "com.defendersofsolara.characters.heroes.ZyraKathelDraven",
-            "com.defendersofsolara.characters.heroes.VioraNyla",
+            "com.defendersofsolara.characters.heroes.Lyra",
             "com.defendersofsolara.characters.heroes.YlonneKryx",
-            "com.defendersofsolara.characters.heroes.SeraphineDrael",
+            "com.defendersofsolara.characters.heroes.Seraphina",
             "com.defendersofsolara.characters.heroes.DravikThorn",
-            "com.defendersofsolara.characters.heroes.NyxValora",
+            "com.defendersofsolara.characters.heroes.Kaelen",
             "com.defendersofsolara.characters.heroes.OrinKaelus"
         };
         
@@ -1107,87 +1192,45 @@ public class UnifiedGameUI extends JFrame {
             "Tank/Support"
         };
         
-        JPanel heroesPanel = new JPanel(new GridLayout(2, 4, 15, 15));
+        // Use a flexible grid layout that scales with screen resolution
+        JPanel heroesPanel = new JPanel(new GridLayout(2, 4, 20, 20));
         heroesPanel.setOpaque(false);
         heroesPanel.setBorder(new EmptyBorder(30, 50, 30, 50));
         
         final List<String> selectedHeroes = new ArrayList<>();
-        final JButton[] heroButtons = new JButton[8];
+        final HeroSelectionPanel[] heroPanels = new HeroSelectionPanel[8];
         final boolean[] isSelected = new boolean[8];
         
+        // Create animated hero selection panels
         for (int i = 0; i < 8; i++) {
             final int index = i;
             final String heroClass = heroClasses[i];
             final String heroName = heroNames[i];
             final String heroRole = heroRoles[i];
+            final String heroResourcePath = getHeroResourcePath(heroClass);
             
-            JPanel heroCard = new JPanel(new BorderLayout(5, 5));
-            heroCard.setOpaque(false);
-            heroCard.setBorder(BorderFactory.createLineBorder(UITheme.BORDER_NORMAL, 2));
-            heroCard.setPreferredSize(new Dimension(200, 180));
+            // Create animated hero panel with hover animation support
+            HeroSelectionPanel heroPanel = new HeroSelectionPanel(heroName, heroRole, heroClass, heroResourcePath);
+            heroPanels[index] = heroPanel;
             
-            JLabel nameLabel = new JLabel(heroName, SwingConstants.CENTER);
-            nameLabel.setFont(UITheme.FONT_TEXT.deriveFont(Font.BOLD, 14f));
-            nameLabel.setForeground(UITheme.PRIMARY_WHITE);
-            
-            JLabel roleLabel = new JLabel(heroRole, SwingConstants.CENTER);
-            roleLabel.setFont(UITheme.FONT_TEXT.deriveFont(Font.PLAIN, 11f));
-            roleLabel.setForeground(UITheme.PRIMARY_CYAN);
-            
-            JButton selectBtn = new JButton(isSelected[index] ? "SELECTED" : "SELECT");
-            selectBtn.setFont(UITheme.FONT_BUTTON_SMALL);
-            selectBtn.setForeground(UITheme.PRIMARY_WHITE);
-            selectBtn.setContentAreaFilled(false);
-            selectBtn.setOpaque(false);
-            selectBtn.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, UITheme.BORDER_NORMAL));
-            selectBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            heroButtons[index] = selectBtn;
-            
-            selectBtn.addActionListener(e -> {
+            // Set click handler for selection
+            heroPanel.setOnClick(() -> {
                 if (isSelected[index]) {
                     // Deselect
                     isSelected[index] = false;
                     selectedHeroes.remove(heroClass);
-                    selectBtn.setText("SELECT");
-                    selectBtn.setForeground(UITheme.PRIMARY_WHITE);
-                    heroCard.setBorder(BorderFactory.createLineBorder(UITheme.BORDER_NORMAL, 2));
+                    heroPanel.setSelected(false);
                 } else if (selectedHeroes.size() < 4) {
                     // Select
                     isSelected[index] = true;
                     selectedHeroes.add(heroClass);
-                    selectBtn.setText("SELECTED");
-                    selectBtn.setForeground(UITheme.PRIMARY_GREEN);
-                    heroCard.setBorder(BorderFactory.createLineBorder(UITheme.PRIMARY_GREEN, 3));
+                    heroPanel.setSelected(true);
                 } else {
                     showStyledMessageDialog(panel, "You can only select 4 heroes!", "Team Full");
                 }
             });
             
-            selectBtn.addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseEntered(MouseEvent e) {
-                    if (!isSelected[index]) {
-                        selectBtn.setBorder(BorderFactory.createMatteBorder(0, 0, 3, 0, UITheme.BORDER_HIGHLIGHT));
-                    }
-                }
-                
-                @Override
-                public void mouseExited(MouseEvent e) {
-                    if (!isSelected[index]) {
-                        selectBtn.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, UITheme.BORDER_NORMAL));
-                    }
-                }
-            });
-            
-            JPanel infoPanel = new JPanel(new GridLayout(2, 1));
-            infoPanel.setOpaque(false);
-            infoPanel.add(nameLabel);
-            infoPanel.add(roleLabel);
-            
-            heroCard.add(infoPanel, BorderLayout.CENTER);
-            heroCard.add(selectBtn, BorderLayout.SOUTH);
-            
-            heroesPanel.add(heroCard);
+            heroesPanel.add(heroPanel);
         }
         
         JLabel selectedCount = createReadableLabel(
@@ -1484,9 +1527,13 @@ public class UnifiedGameUI extends JFrame {
 
         // Create labels with text shadows for readability on transparent background
         JLabel worldLabel = createReadableLabel("WORLD " + worldId, UITheme.FONT_HEADER, isUnlocked ? UITheme.PRIMARY_GREEN : UITheme.TEXT_GRAY, SwingConstants.CENTER);
+        worldLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        worldLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         // Use HTML label for name to enable text wrapping
         JLabel nameLabel = createWrappedLabel(name, UITheme.FONT_TEXT, isUnlocked ? UITheme.PRIMARY_WHITE : UITheme.TEXT_GRAY, SwingConstants.CENTER, prefW - 24);
         JLabel coreLabel = createReadableLabel("Core: " + core, UITheme.FONT_TEXT, isUnlocked ? UITheme.PRIMARY_YELLOW : UITheme.TEXT_GRAY, SwingConstants.CENTER);
+        coreLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        coreLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         boolean meetsLevel = playerProgress.getPlayerLevel() >= playerProgress.getWorldRequirement(worldId);
         boolean clearedPrev = worldId == 1 || playerProgress.hasClearedWorld(worldId - 1);
@@ -1501,6 +1548,8 @@ public class UnifiedGameUI extends JFrame {
             statusText = "Locked";
         }
         JLabel statusLabel = createReadableLabel(statusText, UITheme.FONT_SMALL, isUnlocked ? UITheme.PRIMARY_ORANGE : UITheme.TEXT_GRAY, SwingConstants.CENTER);
+        statusLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        statusLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         statusLabel.setBorder(new EmptyBorder(6, 0, 0, 0));
 
         JPanel contentPanel = new JPanel();
@@ -1535,6 +1584,9 @@ public class UnifiedGameUI extends JFrame {
 
         worldLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         nameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        nameLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        // Ensure nameLabel fills available width for proper centering
+        nameLabel.setMaximumSize(new Dimension(prefW - 24, Integer.MAX_VALUE));
         coreLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         statusLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
@@ -2163,7 +2215,7 @@ public class UnifiedGameUI extends JFrame {
             // Fallback: use default team if no selection made
             int playerLevel = playerProgress != null ? playerProgress.getPlayerLevel() : 1;
             Character[] defaultTeam = {
-                new Ka(), new ZyraKathelDraven(), new VioraNyla(), new YlonneKryx()
+                new Ka(), new ZyraKathelDraven(), new Lyra(), new YlonneKryx()
             };
             for (Character hero : defaultTeam) {
                 hero.syncToLevel(playerLevel);
@@ -3006,8 +3058,7 @@ public class UnifiedGameUI extends JFrame {
         protected void paintComponent(Graphics g) {
             // Don't call super.paintComponent to avoid default background painting
             Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            FontRenderingUtil.applyMixedRenderingHints(g2);
             
             // Transparent black overlay - battle barely visible (no white flash)
             Color overlayColor = new Color(0, 0, 0, (int)(255 * overlayAlpha));
