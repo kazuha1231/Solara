@@ -7,7 +7,8 @@ import com.defendersofsolara.skills.ylonne.*;
 public class YlonneKryx extends Character {
     public YlonneKryx() {
         // Agile DPS: slightly lower HP, moderate mana for burst abilities
-        super("Ylonne Kryx", 800, 620, 145, 60, 90);
+        // Normal-difficulty balance: very high single-target damage and speed, but fragile
+        super("Ylonne Kryx", 820, 640, 150, 60, 90);
     }
 
     @Override

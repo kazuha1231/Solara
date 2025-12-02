@@ -7,10 +7,10 @@ import com.defendersofsolara.core.TargetType;
 
 public class iWaveSkill extends Skill {
     public iWaveSkill() {
-        name = "iWave";
+        name = "Earthshatter";
         manaCost = 90;
         cooldown = 3;
-        description = "Team heal + speed boost";
+        description = "Channel runic force through the earth, healing allies and quickening their stride.";
         targetType = TargetType.ALL_ALLIES;  // Auto-heal entire team
     }
 

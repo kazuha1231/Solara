@@ -6,10 +6,10 @@ import com.defendersofsolara.core.TargetType;
 
 public class ShadowStrikeSkill extends Skill {
     public ShadowStrikeSkill() {
-        name = "Shadow Strike";
+        name = "Rebound Arrow";
         manaCost = 65;
         cooldown = 2;
-        description = "High single-target damage";
+        description = "Loose a deadly arrow that strikes a single target with precision.";
         targetType = TargetType.SINGLE_ENEMY;
     }
 

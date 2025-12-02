@@ -7,6 +7,17 @@ import java.awt.image.BufferedImage;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 
+/**
+ * UI Theme with Medieval Fantasy Color Palette
+ * 
+ * Colors applied throughout the UI:
+ * - Background: Deep dark brown (#1B1A17)
+ * - Panels: Dark brown (#2A2520)
+ * - Borders/Highlights: Brass/Gold (#C2A36A)
+ * - Text: Parchment cream (#F2E6C9)
+ * - HP Bar: Deep red (#B23A48)
+ * - MP Bar: Royal blue (#3C67C5)
+ */
 public class UITheme {
 
     // ==================== SCALING ====================
@@ -32,45 +43,65 @@ public class UITheme {
     public static final int BATTLE_WIDTH = 1200;
     public static final int BATTLE_HEIGHT = 700;
 
-    // ==================== COLORS (Matching Reference Image Exactly) ====================
-    // Colors matching the reference image exactly
-    public static final Color PRIMARY_GREEN = new Color(150, 220, 150);   // Light green for titles (like "Quest")
-    public static final Color PRIMARY_ORANGE = new Color(220, 120, 60);   // Orange accent
-    public static final Color PRIMARY_CYAN = new Color(100, 180, 200);    // Teal accent
-    public static final Color PRIMARY_YELLOW = new Color(200, 160, 100);
-    public static final Color PRIMARY_WHITE = new Color(255, 255, 255);    // Pure white for text
-    public static final Color PRIMARY_RED = new Color(200, 100, 100);
+    // ==================== MEDIEVAL FANTASY COLOR THEME ====================
+    // Background: Deep dark brown (#1B1A17)
+    public static final Color BACKGROUND = new Color(27, 26, 23);
+    
+    // Panels: Dark brown (#2A2520)
+    public static final Color PANEL = new Color(42, 37, 32);
+    
+    // Borders/Highlights: Brass/Gold (#C2A36A)
+    public static final Color BRASS = new Color(194, 163, 106);
+    public static final Color BRASS_HIGHLIGHT = new Color(212, 184, 122); // Lighter brass for hover
+    
+    // Text: Parchment cream (#F2E6C9)
+    public static final Color TEXT = new Color(242, 230, 201);
+    public static final Color TEXT_DIM = new Color(200, 190, 170); // Slightly dimmer text
+    
+    // HP Bar: Deep red (#B23A48)
+    public static final Color HP_BAR = new Color(178, 58, 72);
+    
+    // MP Bar: Royal blue (#3C67C5)
+    public static final Color MP_BAR = new Color(60, 103, 197);
+    
+    // Legacy color mappings (for backward compatibility)
+    public static final Color PRIMARY_GREEN = BRASS;   // Use brass instead of green
+    public static final Color PRIMARY_ORANGE = new Color(220, 120, 60);   // Keep orange for accents
+    public static final Color PRIMARY_CYAN = MP_BAR;    // Use MP blue instead of cyan
+    public static final Color PRIMARY_YELLOW = BRASS;   // Use brass instead of yellow
+    public static final Color PRIMARY_WHITE = TEXT;     // Use parchment instead of white
+    public static final Color PRIMARY_RED = HP_BAR;     // Use HP red
 
-    // Dark blue-gray backgrounds matching reference exactly
-    public static final Color BG_DARK_TEAL = new Color(20, 25, 30);      // Very dark blue-gray/charcoal background
-    public static final Color BG_CHARCOAL = new Color(18, 22, 28);        // Dark charcoal
-    public static final Color BG_PANEL = new Color(35, 45, 55);           // Dark blue-gray panel background (like Quest panel)
-    public static final Color BG_CARD = new Color(40, 50, 60);            // Slightly lighter card background
-    public static final Color BG_BUTTON = new Color(255, 255, 255);        // White button background (like "Accept quest")
-    public static final Color BG_BUTTON_TEXT = new Color(30, 30, 30);     // Dark gray/black text on white button
-    public static final Color BG_INVENTORY_SLOT = new Color(200, 200, 200); // Light gray for inventory slots
-    public static final Color BG_PLAYER = new Color(35, 45, 55);
-    public static final Color BG_ENEMY = new Color(50, 35, 35);
-    public static final Color BG_OVERLAY = new Color(15, 18, 22);
+    // Background colors (medieval theme)
+    public static final Color BG_DARK_TEAL = BACKGROUND;      // Main background
+    public static final Color BG_CHARCOAL = new Color(24, 22, 20);  // Slightly lighter dark
+    public static final Color BG_PANEL = PANEL;           // Panel background
+    public static final Color BG_CARD = new Color(50, 45, 40);  // Card background (slightly lighter)
+    public static final Color BG_BUTTON = BRASS;          // Button background (brass)
+    public static final Color BG_BUTTON_TEXT = new Color(30, 25, 20);  // Dark text on brass button
+    public static final Color BG_INVENTORY_SLOT = new Color(60, 55, 50); // Inventory slot
+    public static final Color BG_PLAYER = PANEL;
+    public static final Color BG_ENEMY = new Color(50, 35, 35);  // Slightly red-tinted for enemies
+    public static final Color BG_OVERLAY = new Color(15, 14, 12);  // Dark overlay
 
-    // Pixel-art borders (light grey decorative borders from reference)
-    public static final Color BORDER_NORMAL = new Color(180, 180, 180);   // Light grey pixel-art border
-    public static final Color BORDER_HIGHLIGHT = new Color(220, 220, 220); // Lighter grey for hover
-    public static final Color BORDER_HOVER = new Color(240, 240, 240);     // Very light grey for hover
+    // Borders (brass theme)
+    public static final Color BORDER_NORMAL = BRASS;      // Brass border
+    public static final Color BORDER_HIGHLIGHT = BRASS_HIGHLIGHT; // Lighter brass for hover
+    public static final Color BORDER_HOVER = new Color(230, 210, 160); // Very light brass for hover
 
-    // Status colors - readable
-    public static final Color HP_GREEN = new Color(80, 200, 100);
-    public static final Color MANA_BLUE = new Color(100, 160, 220);
-    public static final Color DEAD_GRAY = new Color(60, 60, 60);
-    public static final Color TEXT_GRAY = new Color(200, 200, 200);        // Light grey text
-    public static final Color LOG_TEXT = new Color(255, 255, 255);         // Pure white for readability
+    // Status colors
+    public static final Color HP_GREEN = HP_BAR;          // HP red
+    public static final Color MANA_BLUE = MP_BAR;         // MP blue
+    public static final Color DEAD_GRAY = new Color(60, 55, 50);  // Dead character gray
+    public static final Color TEXT_GRAY = TEXT_DIM;       // Dimmed text
+    public static final Color LOG_TEXT = TEXT;             // Action log text
 
     // ==================== FONTS ====================
     private static Font scaleFont(String name, int style, int size) {
         return new Font(name, style, scale(size));
     }
 
-    // Use a serif family to better match the main menu aesthetic
+    // Use a serif family to better match the medieval aesthetic
     public static Font FONT_TITLE;
     public static Font FONT_SUBTITLE;
     public static Font FONT_HEADER;
@@ -112,8 +143,9 @@ public class UITheme {
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2d = (Graphics2D) g;
+                // Medieval gradient: dark brown to slightly lighter dark brown
                 GradientPaint gp = new GradientPaint(
-                    0, 0, BG_DARK_TEAL,
+                    0, 0, BACKGROUND,
                     0, getHeight(), BG_CHARCOAL
                 );
                 g2d.setPaint(gp);
@@ -138,16 +170,16 @@ public class UITheme {
                 int x = (getWidth() - textWidth) / 2;
                 int y = (getHeight() + fm.getAscent() - fm.getDescent()) / 2;
                 
-                // Draw text shadow for depth
+                // Draw text shadow for depth (dark shadow)
                 g2d.setColor(new Color(0, 0, 0, 200));
                 g2d.drawString(getText(), x + 2, y + 2);
                 g2d.setColor(new Color(0, 0, 0, 120));
                 g2d.drawString(getText(), x + 1, y + 1);
                 
-                // Draw main text with slight glow
-                g2d.setColor(new Color(getForeground().getRed(), getForeground().getGreen(), getForeground().getBlue(), 200));
+                // Draw main text with brass glow
+                g2d.setColor(new Color(BRASS.getRed(), BRASS.getGreen(), BRASS.getBlue(), 200));
                 g2d.drawString(getText(), x, y - 1);
-                g2d.setColor(getForeground());
+                g2d.setColor(TEXT); // Parchment color
                 g2d.drawString(getText(), x, y);
                 
                 // Draw beautiful divider fade underline
@@ -180,12 +212,12 @@ public class UITheme {
                 // Use nearest neighbor for pixel-art look
                 g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
                 
-                // White button background (like reference "Accept quest" button)
-                Color bg = BG_BUTTON;
+                // Brass button background (medieval theme)
+                Color bg = BG_BUTTON; // Brass color
                 if (getModel().isPressed()) {
-                    bg = new Color(240, 240, 240);
+                    bg = new Color(BRASS.getRed() - 20, BRASS.getGreen() - 20, BRASS.getBlue() - 20);
                 } else if (getModel().isRollover()) {
-                    bg = new Color(250, 250, 250);
+                    bg = BRASS_HIGHLIGHT; // Lighter brass on hover
                 }
                 g2d.setColor(bg);
                 g2d.fillRect(0, 0, getWidth(), getHeight());
@@ -195,7 +227,7 @@ public class UITheme {
                 if (borderImg != null) {
                     PixelArtUI.drawNineSlice(g2d, borderImg, 0, 0, getWidth(), getHeight());
                 } else {
-                    // Fallback: simple border
+                    // Fallback: brass border
                     g2d.setColor(BORDER_NORMAL);
                     g2d.setStroke(new BasicStroke(2f));
                     g2d.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
@@ -208,7 +240,7 @@ public class UITheme {
         btn.setFont(FONT_BUTTON);
         btn.setContentAreaFilled(false);
         btn.setOpaque(false);
-        btn.setForeground(BG_BUTTON_TEXT); // Black text on white button (like reference)
+        btn.setForeground(BG_BUTTON_TEXT); // Dark text on brass button
         btn.setFocusPainted(false);
         btn.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
         btn.setPreferredSize(BUTTON_SIZE);
@@ -232,28 +264,28 @@ public class UITheme {
         btn.setFont(FONT_BUTTON_SMALL);
         btn.setContentAreaFilled(false);
         btn.setOpaque(false);
-        btn.setForeground(PRIMARY_WHITE);
+        btn.setForeground(TEXT); // Parchment color
         btn.setFocusPainted(false);
-        btn.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, new Color(200, 200, 200, 180)));
+        btn.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, BRASS)); // Brass underline
         btn.setPreferredSize(BUTTON_SMALL);
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btn.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent e) {
-                btn.setForeground(PRIMARY_WHITE);
-                btn.setBorder(BorderFactory.createMatteBorder(0, 0, 3, 0, new Color(255, 255, 255, 255)));
+                btn.setForeground(BRASS_HIGHLIGHT); // Lighter brass on hover
+                btn.setBorder(BorderFactory.createMatteBorder(0, 0, 3, 0, BRASS_HIGHLIGHT));
             }
             @Override
             public void mouseExited(MouseEvent e) {
-                btn.setForeground(PRIMARY_WHITE);
-                btn.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, new Color(200, 200, 200, 180)));
+                btn.setForeground(TEXT);
+                btn.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, BRASS));
             }
         });
         return btn;
     }
 
     public static Border createCyanBorder(int thickness) {
-        return BorderFactory.createLineBorder(BORDER_NORMAL, thickness);
+        return BorderFactory.createLineBorder(BRASS, thickness); // Use brass instead of cyan
     }
 
     public static Border createTitledBorder(String title, Color textColor, Color borderColor) {
@@ -278,18 +310,18 @@ public class UITheme {
     }
 
     private static void refreshTypography() {
-        // Use sans-serif fonts matching the reference (clean, readable)
-        FONT_TITLE = scaleFont(Font.SANS_SERIF, Font.BOLD, 32);
-        FONT_SUBTITLE = scaleFont(Font.SANS_SERIF, Font.BOLD, 24);
-        FONT_HEADER = scaleFont(Font.SANS_SERIF, Font.BOLD, 18);
-        FONT_BUTTON = scaleFont(Font.SANS_SERIF, Font.PLAIN, 20);
-        FONT_BUTTON_SMALL = scaleFont(Font.SANS_SERIF, Font.PLAIN, 16);
-        FONT_TEXT = scaleFont(Font.SANS_SERIF, Font.PLAIN, 16);
-        FONT_TEXT_LARGE = scaleFont(Font.SANS_SERIF, Font.PLAIN, 18);
-        FONT_SMALL = scaleFont(Font.SANS_SERIF, Font.PLAIN, 14);
-        FONT_LOG = scaleFont(Font.SANS_SERIF, Font.PLAIN, 13);
-        FONT_SKILL = scaleFont(Font.SANS_SERIF, Font.PLAIN, 14);
-        FONT_CARD_NAME = scaleFont(Font.SANS_SERIF, Font.BOLD, 16);
+        // Use serif fonts for medieval aesthetic (can be changed to sans-serif if preferred)
+        FONT_TITLE = scaleFont(Font.SERIF, Font.BOLD, 32);
+        FONT_SUBTITLE = scaleFont(Font.SERIF, Font.BOLD, 24);
+        FONT_HEADER = scaleFont(Font.SERIF, Font.BOLD, 18);
+        FONT_BUTTON = scaleFont(Font.SERIF, Font.PLAIN, 20);
+        FONT_BUTTON_SMALL = scaleFont(Font.SERIF, Font.PLAIN, 16);
+        FONT_TEXT = scaleFont(Font.SERIF, Font.PLAIN, 16);
+        FONT_TEXT_LARGE = scaleFont(Font.SERIF, Font.PLAIN, 18);
+        FONT_SMALL = scaleFont(Font.SERIF, Font.PLAIN, 14);
+        FONT_LOG = scaleFont(Font.SERIF, Font.ITALIC, 13); // Italic for action log
+        FONT_SKILL = scaleFont(Font.SERIF, Font.PLAIN, 14);
+        FONT_CARD_NAME = scaleFont(Font.SERIF, Font.BOLD, 16);
     }
 
     private static void refreshDimensions() {

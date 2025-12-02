@@ -117,7 +117,7 @@ public class UnifiedGameUI extends JFrame {
     // ==================== CONSTRUCTOR ====================
 
     public UnifiedGameUI() {
-        setTitle("Defenders of Solara");
+        setTitle("Defenders of Solara: The Shattered Dungeons of Eldralune");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(currentWidth, currentHeight);
         setLocationRelativeTo(null);
@@ -372,7 +372,16 @@ public class UnifiedGameUI extends JFrame {
     }
 
     private void showWorldStory(int worldId) {
-        if (playerProgress == null || !playerProgress.canEnterWorld(worldId)) {
+        // Always ensure a team of 4 heroes is selected before entering a world's story
+        if (playerProgress == null || !playerProgress.hasSelectedTeam()) {
+            pendingWorldId = worldId;
+            System.out.println("No valid team selected for World " + worldId + " → redirecting to CHARACTER SELECT");
+            refreshCharacterSelection();
+            showScreen(SCREEN_CHARACTER_SELECT);
+            return;
+        }
+
+        if (!playerProgress.canEnterWorld(worldId)) {
             showStyledMessageDialog(this,
                 "You do not meet the requirements for World " + worldId + ".",
                 "Locked"
@@ -395,7 +404,16 @@ public class UnifiedGameUI extends JFrame {
     }
 
     private void showBattle(int worldId) {
-        if (playerProgress == null || !playerProgress.canEnterWorld(worldId)) {
+        // Ensure a valid team exists before starting a new battle (resume battle is handled separately)
+        if (playerProgress == null || !playerProgress.hasSelectedTeam()) {
+            pendingWorldId = worldId;
+            System.out.println("No valid team selected for World " + worldId + " → redirecting to CHARACTER SELECT before battle");
+            refreshCharacterSelection();
+            showScreen(SCREEN_CHARACTER_SELECT);
+            return;
+        }
+
+        if (!playerProgress.canEnterWorld(worldId)) {
             showStyledMessageDialog(this,
                 "You do not meet the requirements for this world.",
                 "Locked"
@@ -491,6 +509,44 @@ public class UnifiedGameUI extends JFrame {
         return label;
     }
     
+    /**
+     * Creates a label with HTML wrapping for text that needs to fit within a specific width.
+     */
+    private JLabel createWrappedLabel(String text, Font font, Color color, int alignment, int maxWidth) {
+        // Convert color to hex
+        String hexColor = String.format("#%02x%02x%02x", color.getRed(), color.getGreen(), color.getBlue());
+        
+        // Escape HTML special characters
+        String escapedText = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+        
+        // Create HTML with table-based structure for reliable width constraints and centering
+        // Table-based approach works better for Swing HTML rendering
+        String textAlign = alignment == SwingConstants.CENTER ? "center" : 
+                          alignment == SwingConstants.RIGHT ? "right" : "left";
+        
+        // Use table with center alignment and proper text alignment
+        String htmlText = "<html><body style='text-align: center; width: " + maxWidth + "px;'>" +
+                         "<div style='color: " + hexColor + "; " +
+                         "font-family: " + font.getFamily() + "; " +
+                         "font-size: " + font.getSize() + "pt; " +
+                         "font-weight: " + (font.isBold() ? "bold" : "normal") + "; " +
+                         "text-align: " + textAlign + "; " +
+                         "word-wrap: break-word; " +
+                         "overflow-wrap: break-word;'>" + 
+                         escapedText + 
+                         "</div></body></html>";
+        
+        JLabel label = new JLabel(htmlText, SwingConstants.CENTER);
+        label.setFont(font);
+        label.setForeground(color);
+        label.setOpaque(false);
+        label.setHorizontalAlignment(SwingConstants.CENTER);
+        label.setAlignmentX(Component.CENTER_ALIGNMENT);
+        // Set maximum width to ensure wrapping
+        label.setMaximumSize(new Dimension(maxWidth, Integer.MAX_VALUE));
+        return label;
+    }
+    
     private void loadMenuBackground() {
         try {
             java.net.URL url = getClass().getResource("/image/menu.png");
@@ -537,11 +593,11 @@ public class UnifiedGameUI extends JFrame {
     private void loadWorldIcons() {
         worldIcons.clear();
         String[] resources = {
-            "/image/ChronovaleWorld.gif",
-            "/image/GravemireWorld.gif",
-            "/image/AetherionWorld.gif",
-            "/image/ElarionWorld.gif",
-            "/image/Umbros.gif"
+            "/image/VerdantCatacombs.gif",
+            "/image/InfernalArmory.gif",
+            "/image/HourglassLabyrinth.gif",
+            "/image/ObsidianSanctum.gif",
+            "/image/HallowedCitadel.gif"
         };
         System.out.println("Loading world icons...");
         for (int i = 0; i < resources.length; i++) {
@@ -709,20 +765,18 @@ public class UnifiedGameUI extends JFrame {
 
         JLabel credits = new JLabel(
             "<html><center>" +
-                "<font size='8' color='#FFFFFF'><b>DEFENDERS OF SOLARA</b></font><br><br>" +
-                "<font size='5' color='#FFFFFF'>" +
-                "<b>Developer/Members:</b><br>" +
-                "John Warren Pansacala<br>" +
-                "Veinz Pius N. Escuzar<br>" +
-                "Denzel B. Valendez<br>" +
-                "Kim Kyle M. Paran<br>" +
-                "Rushaine A. Tura<br><br>" +
-                "<b>Credits:</b><br>" +
-                "Assets: Kenny Assets<br>" +
-                "Planet Assets: Deep-Fold source (Itch.io)<br>" +
-                "Background Menu: Gemini AI<br><br>" +
-                "Engine: Java Swing<br>" +
-                "Version: 1.0" +
+                "<font size='6' color='#FFFFFF'><b>🏰 DEFENDERS OF SOLARA: SHATTERED DUNGEONS OF ELDRALUNE</b></font><br><br>" +
+                "<font size='4' color='#FFFFFF'>" +
+                "<b>Group Leader:</b><br>" +
+                "Pansacala, Shon Warten N.<br><br>" +
+                "<b>Members:</b><br>" +
+                "Escuza, Vienn Pius M.<br>" +
+                "Yohbuo, Denzel<br>" +
+                "Bernoy, Kim Kyle M.<br>" +
+                "Tura, Fuchinie M.<br><br>" +
+                "<b>Version:</b> 1<br><br>" +
+                "<b>Engine:</b> Java Swing<br>" +
+                "<b>Theme:</b> The Shattered Dungeons of Eldralune" +
                 "</font></center></html>"
         );
         credits.setOpaque(false);
@@ -934,11 +988,13 @@ public class UnifiedGameUI extends JFrame {
         panel.add(buttonPanel, BorderLayout.SOUTH);
 
         String[] storyLines = {
-            "In the depths of space...\n\n",
-            "A galactic warlord named Xyrrak the Devourer has unleashed ",
-            "an army of bio-mechanical horrors to conquer the Veil System.\n\n",
-            "Each of its five worlds holds a Core of Balance.\n\n",
-            "The fate of the galaxy rests in your hands...\n\n"
+            "When the Obsidian Crown shattered, its shards fell across the continent of Eldralune.\n\n",
+            "Each shard burrowed into the earth and birthed a dungeon, warping stone and soul alike.\n\n",
+            "Once-quiet crypts became endless spawning pits, and forgotten halls echoed with Abyssborn guardians.\n\n",
+            "Malakar, the Abyssbound King, bound his will to the broken Crown and claimed dominion over every dungeon gate.\n\n",
+            "Now the Shattered Dungeons of Eldralune spill monsters into every kingdom, threatening to drown the world in shadow.\n\n",
+            "Four heroes answer the call, descending into the deepest depths to gather the Crown's shards and break Malakar's hold…\n\n",
+            "for only they can still the Obsidian Crown and seal the dungeons forever.\n\n"
         };
 
         javax.swing.Timer typewriterTimer = new javax.swing.Timer(50, null);
@@ -1030,13 +1086,25 @@ public class UnifiedGameUI extends JFrame {
         };
         
         String[] heroNames = {
-            "Ka", "Zyra Kathel Draven", "Viora Nyla", "Ylonne Kryx",
-            "Seraphine Drael", "Dravik Thorn", "Nyx Valora", "Orin Kaelus"
+            "Ka",
+            "Aric Stoneward",
+            "Lyra Stormgale",
+            "Ylonne Kryx",
+            "Seraphina Vale",
+            "Dravik Thorn",
+            "Kaelen Mirethorn",
+            "Orin Kaelus"
         };
         
         String[] heroRoles = {
-            "AoE DPS / Self-Heal", "Tank/Damage", "Support/Debuff", "Assassin",
-            "Healer/Support", "Bruiser", "Stealth/Assassin", "Tank/Support"
+            "AoE DPS / Self-Heal",
+            "Guardian Knight (Tank/Damage)",
+            "Runeblade Monk (Crowd Control)",
+            "Assassin",
+            "Arcane Tactician (Support/Debuff)",
+            "Bruiser",
+            "Shadow Ranger (Assassin)",
+            "Tank/Support"
         };
         
         JPanel heroesPanel = new JPanel(new GridLayout(2, 4, 15, 15));
@@ -1310,8 +1378,15 @@ public class UnifiedGameUI extends JFrame {
         worldsPanel.setOpaque(false);
         worldsPanel.setBorder(new EmptyBorder(50, 50, 50, 50));
 
-        String[] worldNames = {"CHRONOVALE", "GRAVEMIRE", "AETHERION", "ELARION", "UMBROS"};
-        String[] worldCores = {"Time", "Gravity", "Energy", "Life", "Void"};
+        // Medieval dungeon names & themes
+        String[] worldNames = {
+            "CATACOMBS",
+            "EMBERFORGE",
+            "WEEPING HOLLOW",
+            "OBSIDIAN SPIRE",
+            "ABYSSAL THRONE"
+        };
+        String[] worldCores = {"Life", "Flame", "Time", "Earth", "Final Siege"};
 
         for (int i = 0; i < 5; i++) {
             final int worldId = i + 1;
@@ -1409,7 +1484,8 @@ public class UnifiedGameUI extends JFrame {
 
         // Create labels with text shadows for readability on transparent background
         JLabel worldLabel = createReadableLabel("WORLD " + worldId, UITheme.FONT_HEADER, isUnlocked ? UITheme.PRIMARY_GREEN : UITheme.TEXT_GRAY, SwingConstants.CENTER);
-        JLabel nameLabel = createReadableLabel(name, UITheme.FONT_TEXT, isUnlocked ? UITheme.PRIMARY_WHITE : UITheme.TEXT_GRAY, SwingConstants.CENTER);
+        // Use HTML label for name to enable text wrapping
+        JLabel nameLabel = createWrappedLabel(name, UITheme.FONT_TEXT, isUnlocked ? UITheme.PRIMARY_WHITE : UITheme.TEXT_GRAY, SwingConstants.CENTER, prefW - 24);
         JLabel coreLabel = createReadableLabel("Core: " + core, UITheme.FONT_TEXT, isUnlocked ? UITheme.PRIMARY_YELLOW : UITheme.TEXT_GRAY, SwingConstants.CENTER);
 
         boolean meetsLevel = playerProgress.getPlayerLevel() >= playerProgress.getWorldRequirement(worldId);
@@ -1733,90 +1809,54 @@ public class UnifiedGameUI extends JFrame {
     
     private String getWorldStory(int worldId) {
         switch (worldId) {
-            case 1: // Chronovale - Time Core
-                return "WORLD 1: CHRONOVALE\n" +
-                       " Core of Time\n\n" +
-                       "The first world of the Veil System, Chronovale was once a realm where time flowed " +
-                       "in perfect harmony. Ancient civilizations built monuments that stood for millennia, " +
-                       "their history preserved in crystalline structures that recorded every moment.\n\n" +
-                       "But Xyrrak's forces have arrived. Bio-mechanical horrors now stalk the temporal plains, " +
-                       "their very presence causing time to fracture and loop. The Time Core pulses erratically, " +
-                       "sending ripples of temporal chaos across the planet.\n\n" +
-                       "Your team arrives to find Chronovale's guardians already fallen. The Core's chamber " +
-                       "lies ahead, but Xyrrak's minions have twisted the flow of time itself into a weapon. " +
-                       "You must fight through temporal anomalies and corrupted guardians to reach the Core.\n\n" +
-                       "If the Time Core falls, the very foundation of causality will shatter. The galaxy " +
-                       "cannot afford to lose this first line of defense.";
-                       
-            case 2: // Gravemire - Gravity Core
-                return "WORLD 2: GRAVEMIRE\n" +
-                       "Core of Gravity\n\n" +
-                       "Gravemire, the second world, was a planet of impossible architecture—cities built " +
-                       "on floating islands that defied gravity, connected by bridges of pure gravitational force. " +
-                       "The Gravity Core maintained perfect balance, allowing life to thrive in a world where " +
-                       "up and down were mere suggestions.\n\n" +
-                       "Xyrrak's corruption has already begun. The floating cities now drift aimlessly, " +
-                       "their gravitational fields unstable. Some islands crash into each other, while others " +
-                       "spin wildly into the void. The Core's chamber itself has become a labyrinth of " +
-                       "shifting gravity wells.\n\n" +
-                       "Reports speak of a massive bio-mechanical construct that has fused with the Core's " +
-                       "chamber, using gravity as both shield and weapon. Your team must navigate the " +
-                       "chaotic gravitational fields and face the corrupted guardian.\n\n" +
-                       "Time is running out. With each passing moment, Xyrrak's influence grows stronger.";
-                       
-            case 3: // Aetherion - Energy Core
-                return "WORLD 3: AETHERION\n" +
-                       "Core of Energy\n\n" +
-                       "Aetherion was the most vibrant of the Veil worlds—a planet where pure energy flowed " +
-                       "like rivers of light. The Energy Core powered entire civilizations, its power so vast " +
-                       "that it could reshape matter itself. Here, technology and magic merged seamlessly.\n\n" +
-                       "But Xyrrak's ambition has turned Aetherion into a nightmare. The energy flows have " +
-                       "become corrupted, twisting into violent storms of raw power. The Core itself has " +
-                       "begun to overload, its energy bleeding into reality in chaotic bursts.\n\n" +
-                       "Your team discovers that Xyrrak has sent one of his most powerful lieutenants to " +
-                       "harness the Core's energy. The chamber is a maelstrom of unstable power, and the " +
-                       "guardian has been transformed into a being of pure, corrupted energy.\n\n" +
-                       "As you prepare to enter the Core chamber, you sense a new presence—a warrior who " +
-                       "has been fighting Xyrrak's forces alone. Perhaps an ally will join your cause...";
-                       
-            case 4: // Elarion - Life Core
-                return "WORLD 4: ELARION\n" +
-                       "Core of Life\n\n" +
-                       "Elarion was the heart of the Veil System—a world of unparalleled beauty where life " +
-                       "flourished in impossible forms. The Life Core sustained all living things, its power " +
-                       "flowing through every plant, every creature, every breath. It was said that on Elarion, " +
-                       "death itself was merely a transition.\n\n" +
-                       "But Xyrrak's corruption has struck Elarion hardest. The Life Core has been twisted, " +
-                       "its power perverted to create abominations—living things fused with mechanical parts, " +
-                       "creatures that should not exist. The once-beautiful forests now writhe with " +
-                       "bio-mechanical horrors.\n\n" +
-                       "The Core's chamber has become a nightmare of organic and mechanical fusion. The " +
-                       "guardian, once a protector of all life, has been transformed into a monstrous " +
-                       "amalgamation of flesh and steel.\n\n" +
-                       "This is the last Core before Umbros. If you fail here, Xyrrak will have all the " +
-                       "power he needs to complete his ascension. The fate of the galaxy hangs in the balance.";
-                       
-            case 5: // Umbros - Void Core (Xyrrak's domain)
-                return "WORLD 5: UMBROS\n" +
-                       "Core of Void\n\n" +
-                       "Umbros was never meant to be a world. It is a void—a place where reality itself " +
-                       "becomes uncertain. The Void Core exists here, not as a source of power, but as a " +
-                       "balance to all existence. It is the emptiness that gives meaning to everything else.\n\n" +
-                       "But Xyrrak has made Umbros his throne. Here, in the heart of nothingness, he has " +
-                       "built his fortress. The Void Core has been corrupted beyond recognition, its power " +
-                       "twisted to serve Xyrrak's will. The other four Cores, already weakened, are being " +
-                       "drawn here, their energy feeding Xyrrak's transformation.\n\n" +
-                       "Your team stands at the threshold of the final battle. Through the void, you can " +
-                       "see Xyrrak the Devourer—no longer a warlord, but something far more terrible. " +
-                       "He has begun to fuse the Cores, ascending toward godhood.\n\n" +
-                       "This is it. The final stand. If you fail, Xyrrak will remake reality in his image, " +
-                       "and the Veil System—and all existence—will be lost forever. But if you succeed, " +
-                       "you will restore the Cores, purify what has been corrupted, and save the galaxy.\n\n" +
-                       "The four heroes, once divided, now stand united. Together, you are the last hope " +
-                       "of the Veil System. Together, you will face Xyrrak.";
-                       
+            case 1: // The Fallen Catacombs — Shard-Buried Crypts
+                return "DUNGEON 1: THE FALLEN CATACOMBS\n" +
+                       "Shard-Buried Crypts\n\n" +
+                       "Beneath Eldralune's oldest city lies a tangle of catacombs, once a resting place for honored dead. " +
+                       "When a fragment of the Obsidian Crown crashed here, the dead forgot how to sleep.\n\n" +
+                       "Coffins yawn open, bone-clad knights, and roots slick with gravewater now claw at any who enter. " +
+                       "The shard's corruption stitches soul and stone together, birthing the first of Malakar's Abyssborn guardians.\n\n" +
+                       "Somewhere in the maze, a Crown-twisted warden waits, clutching the shard that first shattered the peace of Eldralune.";
+
+            case 2: // The Emberforge Depths — Cursed Forges
+                return "DUNGEON 2: THE EMBERFORGE DEPTHS\n" +
+                       "Cursed Forges\n\n" +
+                       "Deep under the mountain citadels, the Emberforge once rang with the oaths of mortal smiths. " +
+                       "Now its anvils glow with sickly fire, and shattered war-helms march without heads.\n\n" +
+                       "An Obsidian shard has lodged in the heart of the great forge, feeding molten rivers that flow like living fangs. " +
+                       "Abyssborn armor, empty but moving, patrols the smoldering halls and drags intruders into the coals.\n\n" +
+                       "Within the deepest chamber, a colossal war-construct—half statue, half furnace—guards the shard, waiting to test the mettle of any hero bold enough to descend.";
+
+            case 3: // The Weeping Hollow — Blighted Marsh
+                return "DUNGEON 3: THE WEEPING HOLLOW\n" +
+                       "Blighted Marsh\n\n" +
+                       "Where once lay a quiet valley of springs, there is now only the Weeping Hollow—a flooded graveyard of drowned trees and sinking stones. " +
+                       "Mist clings to the water like grief, and every ripple hides something reaching back.\n\n" +
+                       "Here, a shard of the Obsidian Crown festers beneath the marsh, turning the dead into wailing silhouettes and the living into husks of sorrow. " +
+                       "Each raindrop feels heavier than the last, as if the sky itself mourns.\n\n" +
+                       "At the Hollow's sunken heart, a weeping guardian of roots and bone clutches the shard, its tears poisoning the land as long as it remains bound to Malakar's will.";
+
+            case 4: // The Obsidian Spire — Shattered Sky
+                return "DUNGEON 4: THE OBSIDIAN SPIRE\n" +
+                       "Shattered Sky\n\n" +
+                       "The Obsidian Spire knifes up from the earth where another shard struck, splitting sky and stone alike. " +
+                       "Its jagged walls drink in light, and stairways of broken rock spiral into clouds scarred by dark radiance.\n\n" +
+                       "Along its ledges march Abyssborn sentinels, their armor etched with runes that pulse like open wounds. " +
+                       "Shards of the Spire drift in the air, frozen mid-fall, turning the climb into a dance between gravity and the Abyss.\n\n" +
+                       "High above, where the winds scream against obsidian, a colossal warding spirit guards the path to Malakar's final sanctuary, its strength drawn from yet another fragment of the Crown.";
+
+            case 5: // The Obsidian Spire — Abyssal Throne
+                return "FINAL DUNGEON: THE OBSIDIAN SPIRE — ABYSSAL THRONE\n" +
+                       "Throne of the Abyssbound King\n\n" +
+                       "At the Spire's peak hangs a throne-room without walls, suspended over a churning tear in reality. " +
+                       "Here, all shards of the Obsidian Crown scream together, their power spilling out as an endless storm of shadow.\n\n" +
+                       "Malakar the Abyssbound King sits upon a throne of fused bone and obsidian, his armor stitched with the light of fallen realms. " +
+                       "Abyssborn champions kneel around him, rising only to cut down those who would free Eldralune from his grasp.\n\n" +
+                       "This is the last ascent. Break the Crown's hold, cast Malakar from his Abyssal Throne, and the dungeons of Eldralune will finally cease spawning monsters. " +
+                       "Fail, and the wound above the world will never close.";
+
             default:
-                return "WORLD " + worldId + "\n\nPrepare for battle...";
+                return "A cursed dungeon stirs beneath Eldralune...\n\nPrepare for battle within the Shattered Dungeons.";
         }
     }
 
@@ -1975,16 +2015,16 @@ public class UnifiedGameUI extends JFrame {
     private Character createBossForWorld(int worldId) {
         switch (worldId) {
             case 1:
-                return buildDynamicBoss("Chronovale Tyrant", 950, 280, 110, 55, 40);
+                return buildDynamicBoss("Elder Bramblewraith", 950, 280, 110, 55, 40);
             case 2:
-                return buildDynamicBoss("Gravemire Behemoth", 1200, 320, 135, 65, 42);
+                return buildDynamicBoss("Ashforged Colossus", 1200, 320, 135, 65, 42);
             case 3:
-                return buildDynamicBoss("Aetherion Ascendant", 1400, 380, 150, 75, 48);
+                return buildDynamicBoss("Chrono Sphinx", 1400, 380, 150, 75, 48);
             case 4:
-                return buildDynamicBoss("Elarion Warden", 1650, 420, 170, 85, 52);
+                return buildDynamicBoss("Gravem Titan", 1650, 420, 170, 85, 52);
             case 5:
             default:
-                return buildDynamicBoss("Umbros Voidcaller", 1900, 500, 195, 95, 58);
+                return buildDynamicBoss("Malakar's Hollow Aspect", 1900, 500, 195, 95, 58);
         }
     }
 
@@ -2093,12 +2133,12 @@ public class UnifiedGameUI extends JFrame {
 
     private Character[] legacyEnemyPack(int worldId) {
         switch (worldId) {
-            case 1: return new Character[]{new BiomechanicalAlien(), new GravityBeast()};
-            case 2: return new Character[]{new GravityBeast(), new BiomechanicalAlien(), new GravityBeast()};
-            case 3: return new Character[]{new XyrrakTheDevourer()};
-            case 4: return new Character[]{new GravityBeast(), new XyrrakTheDevourer()};
-            case 5: return new Character[]{new XyrrakTheDevourer(), new XyrrakTheDevourer()};
-            default: return new Character[]{new BiomechanicalAlien()};
+            case 1: return new Character[]{new Abyssal(), new Stonebound()};
+            case 2: return new Character[]{new Stonebound(), new Abyssal(), new Stonebound()};
+            case 3: return new Character[]{new Malakar()};
+            case 4: return new Character[]{new Stonebound(), new Malakar()};
+            case 5: return new Character[]{new Malakar(), new Malakar()};
+            default: return new Character[]{new Abyssal()};
         }
     }
 
@@ -2885,6 +2925,9 @@ public class UnifiedGameUI extends JFrame {
             wave.bossWave ? " • Boss" : ""
         );
         appendBattleLog("\n--- " + label + " ---");
+        if (wave.bossWave) {
+            appendBattleLog("The air shifts… a presence emerges from the Abyss…");
+        }
         updateWaveLabel();
     }
 
@@ -2977,7 +3020,7 @@ public class UnifiedGameUI extends JFrame {
             float titleAlpha = Math.min(1f, overlayAlpha * 1.2f);
             g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, titleAlpha));
             g2.setColor(UITheme.PRIMARY_WHITE);
-            g2.drawString("DEFENDERS OF SOLARA", 20, 40);
+            g2.drawString("DEFENDERS OF SOLARA: ELDRALUNE", 20, 40);
             
             g2.dispose();
         }

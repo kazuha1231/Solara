@@ -6,8 +6,9 @@ import com.defendersofsolara.skills.nyx.*;
 
 public class NyxValora extends Character {
     public NyxValora() {
-        // Stealth/Assassin: damage & untargetable, Ultimate: Nightfall Execution
-        super("Nyx Valora", 750, 600, 155, 55, 92);
+        // Kaelen Mirethorn — Shadow Ranger (Assassin)
+        // Extreme burst and speed, but very fragile
+        super("Kaelen Mirethorn", 770, 620, 160, 55, 95);
     }
 
     @Override

@@ -7,10 +7,10 @@ import com.defendersofsolara.core.TargetType;
 
 public class StealthSkill extends Skill {
     public StealthSkill() {
-        name = "Stealth";
+        name = "Silent Drift";
         manaCost = 80;
         cooldown = 4;
-        description = "Become untargetable + speed boost";
+        description = "Slip into a silent drift, becoming hard to target and moving with uncanny speed.";
         targetType = TargetType.SELF;
     }
 

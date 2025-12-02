@@ -7,7 +7,8 @@ import com.defendersofsolara.skills.dravik.*;
 public class DravikThorn extends Character {
     public DravikThorn() {
         // Bruiser: attack buff & AoE, Ultimate: Wrath Unleashed
-        super("Dravik Thorn", 950, 580, 140, 85, 68);
+        // Normal-difficulty balance: durable frontline damage dealer
+        super("Dravik Thorn", 980, 600, 140, 88, 70);
     }
 
     @Override

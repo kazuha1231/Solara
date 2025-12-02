@@ -6,10 +6,10 @@ import com.defendersofsolara.core.TargetType;
 
 public class TeamHealSkill extends Skill {
     public TeamHealSkill() {
-        name = "Team Heal";
+        name = "Inner Harmony";
         manaCost = 100;
         cooldown = 4;
-        description = "Heal all allies for 20-50% of caster's max HP";
+        description = "Channel inner harmony to heal all allies for 20-50% of your max HP";
         targetType = TargetType.ALL_ALLIES;  // Auto-heal entire team
     }
 

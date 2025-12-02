@@ -6,10 +6,10 @@ import com.defendersofsolara.core.TargetType;
 
 public class MultiTargetHealSkill extends Skill {
     public MultiTargetHealSkill() {
-        name = "Divine Heal";
+        name = "Arcane Wind";
         manaCost = 110;
         cooldown = 4;
-        description = "Heal all allies for 25-40% max HP";
+        description = "Call forth an arcane wind that restores health to all allies.";
         targetType = TargetType.ALL_ALLIES;
     }
 

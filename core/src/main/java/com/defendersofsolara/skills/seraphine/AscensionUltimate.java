@@ -7,10 +7,10 @@ import com.defendersofsolara.core.TargetType;
 
 public class AscensionUltimate extends Skill {
     public AscensionUltimate() {
-        name = "Ascension";
+        name = "Mindbind Sigil";
         manaCost = 220;
         cooldown = 8;
-        description = "Massive heal + buffs for all allies";
+        description = "Unleash a mindbinding sigil that massively heals and empowers all allies.";
         targetType = TargetType.ALL_ALLIES;
     }
 

@@ -6,7 +6,7 @@ import com.defendersofsolara.core.TargetType;
 
 public class JudgmentOfSolaraUltimate extends Skill {
     public JudgmentOfSolaraUltimate() {
-        name = "Judgment of Solara";
+        name = "Abyssal Verdict";
         manaCost = 210;
         cooldown = 8;
         description = "Massive AoE damage + team buffs";

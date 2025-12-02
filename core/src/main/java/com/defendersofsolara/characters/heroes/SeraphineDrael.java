@@ -6,8 +6,9 @@ import com.defendersofsolara.skills.seraphine.*;
 
 public class SeraphineDrael extends Character {
     public SeraphineDrael() {
-        // Healer/Support: multi-target heal, shields, Ultimate: Ascension
-        super("Seraphine Drael", 800, 750, 90, 75, 68);
+        // Seraphina Vale — Arcane Tactician (Support/Debuff)
+        // Backline support with shields, healing, and battlefield control
+        super("Seraphina Vale", 820, 780, 90, 78, 68);
     }
 
     @Override

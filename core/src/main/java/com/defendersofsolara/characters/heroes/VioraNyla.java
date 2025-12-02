@@ -7,8 +7,9 @@ import com.defendersofsolara.skills.viora.*;
 public class VioraNyla extends Character {
 
     public VioraNyla() {
-        // Support mage: balanced HP/mana leaning toward casting
-        super("Viora Nyla", 850, 720, 100, 70, 70);
+        // Lyra Stormgale — Runeblade Monk (Crowd Control)
+        // Balanced HP/mana leaning toward casting and battlefield control
+        super("Lyra Stormgale", 860, 760, 100, 75, 70);
     }
 
     @Override

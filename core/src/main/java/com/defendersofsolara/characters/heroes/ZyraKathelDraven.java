@@ -7,7 +7,8 @@ import com.defendersofsolara.skills.zyrakathel.*;
 public class ZyraKathelDraven extends Character {
     public ZyraKathelDraven() {
         // Tank/Damage hybrid: shield, attack buff, Ultimate: Last Stand
-        super("Zyra Kathel Draven", 1050, 600, 125, 90, 60);
+        // Normal-difficulty balance: very sturdy front-liner with modest damage
+        super("Zyra Kathel Draven", 1080, 620, 125, 98, 60);
     }
 
     @Override

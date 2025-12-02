@@ -7,10 +7,10 @@ import com.defendersofsolara.core.TargetType;
 
 public class TeamShieldSkill extends Skill {
     public TeamShieldSkill() {
-        name = "Protective Barrier";
+        name = "Illusory Veil";
         manaCost = 95;
         cooldown = 5;
-        description = "Shield all allies";
+        description = "Wrap all allies in an illusory veil, shielding them from harm.";
         targetType = TargetType.ALL_ALLIES;
     }
 

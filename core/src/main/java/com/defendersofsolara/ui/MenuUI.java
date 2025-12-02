@@ -146,7 +146,7 @@ class MenuUI extends JPanel {
         g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 
         // Main title - beautiful white text with divider fade underline
-        Font titleFont = new Font(Font.SANS_SERIF, Font.BOLD, 64);
+        Font titleFont = new Font(Font.SANS_SERIF, Font.BOLD, 48);
         g2d.setFont(titleFont);
         String title = "DEFENDERS OF SOLARA";
         FontMetrics fm = g2d.getFontMetrics();
@@ -181,9 +181,9 @@ class MenuUI extends JPanel {
         }
 
         // Subtitle - beautiful white text with divider fade underline
-        Font subtitleFont = new Font(Font.SANS_SERIF, Font.PLAIN, 24);
+        Font subtitleFont = new Font(Font.SANS_SERIF, Font.PLAIN, 22);
         g2d.setFont(subtitleFont);
-        String subtitle = "VEIL SYSTEM CONFLICT";
+        String subtitle = "THE SHATTERED DUNGEONS OF ELDRALUNE";
         FontMetrics sfm = g2d.getFontMetrics();
         int subLeft = centerX - sfm.stringWidth(subtitle) / 2;
         int subTop = top + 55;

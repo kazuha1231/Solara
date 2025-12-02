@@ -9,7 +9,7 @@ import java.io.IOException;
 import java.util.function.Consumer;
 
 public class UIVisual {
-    // === SCIFI BACKGROUND PANEL ===
+    // === DUNGEON BACKGROUND PANEL ===
     public static class BackgroundPanel extends JPanel {
         private final JPanel content;
         private BufferedImage bgImage;
@@ -30,7 +30,7 @@ public class UIVisual {
         }
         private void loadBackgroundImage() {
             try {
-                java.net.URL imgURL = getClass().getResource("/image/galaxy_bg.png");
+                java.net.URL imgURL = getClass().getResource("/image/eldralune_dungeon_bg.png");
                 if (imgURL != null)
                     bgImage = javax.imageio.ImageIO.read(imgURL);
             } catch (IOException ignored) {}

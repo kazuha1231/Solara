@@ -37,7 +37,17 @@ class ProfileUI extends JPanel {
 
         int activeSlot = parent.getActiveProfileIndex();
         PlayerProgress progress = activeSlot >= 0 ? parent.getProfileProgress(activeSlot + 1) : null;
-        String summary = (progress != null)
+
+        // Only show "ACTIVE PROFILE" info if this slot actually has real saved progress.
+        // Treat a fresh, never-saved profile (level 1, 0 EXP, 0 worlds, no lastSaveTime)
+        // as "no active profile" for the header text.
+        boolean hasRealProgress = progress != null
+            && !(progress.getPlayerLevel() == 1
+                && progress.getCurrentExp() == 0
+                && progress.getClearedWorldCount() == 0
+                && progress.getLastSaveTime() == 0);
+
+        String summary = hasRealProgress
             ? String.format("ACTIVE PROFILE %d • %s", activeSlot + 1, progress.getProfileSummary())
             : "Select a profile to begin";
         JLabel levelInfo = createTitleWithDivider(summary, UITheme.FONT_TEXT, Color.WHITE);

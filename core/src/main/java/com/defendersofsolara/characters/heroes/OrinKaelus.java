@@ -6,8 +6,9 @@ import com.defendersofsolara.skills.orin.*;
 
 public class OrinKaelus extends Character {
     public OrinKaelus() {
-        // Tank/Support: AoE holy damage, shield & heal, Ultimate: Judgment of Solara
-        super("Orin Kaelus", 1000, 680, 115, 95, 62);
+        // Tank/Support: AoE holy damage, shield & heal, Ultimate: Abyssal Verdict
+        // Very tough protector with good mana pool
+        super("Orin Kaelus", 1040, 700, 115, 100, 62);
     }
 
     @Override

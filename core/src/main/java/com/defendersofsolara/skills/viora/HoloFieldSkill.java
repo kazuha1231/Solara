@@ -7,10 +7,10 @@ import com.defendersofsolara.core.TargetType;
 
 public class HoloFieldSkill extends Skill {
     public HoloFieldSkill() {
-        name = "Holo-Field";
+        name = "Blinding Flash";
         manaCost = 80;
         cooldown = 3;
-        description = "Team evasion buff";
+        description = "Unleash a blinding flash that bolsters your allies' defenses.";
         targetType = TargetType.ALL_ALLIES;  // Auto-buff entire team
     }
 
@@ -21,7 +21,7 @@ public class HoloFieldSkill extends Skill {
             if (ally != null && ally.isAlive()) {
                 int defenseBoost = scaleAmount(user, 35, 3);
                 ally.applyEffect(new StatusEffect("buff", defenseBoost, 2));
-                System.out.println("  → " + ally.name + " gains Holo-Field (+" + defenseBoost + " DEF)!");
+                System.out.println("  → " + ally.name + " is guarded by a Blinding Flash (+" + defenseBoost + " DEF)!");
             }
         }
         resetCooldown();

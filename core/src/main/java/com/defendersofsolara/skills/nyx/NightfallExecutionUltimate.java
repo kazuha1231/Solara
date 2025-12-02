@@ -6,10 +6,10 @@ import com.defendersofsolara.core.TargetType;
 
 public class NightfallExecutionUltimate extends Skill {
     public NightfallExecutionUltimate() {
-        name = "Nightfall Execution";
+        name = "Execution Mark";
         manaCost = 190;
         cooldown = 6;
-        description = "Massive single-target damage";
+        description = "Mark a single foe for execution, dealing devastating damage.";
         targetType = TargetType.SINGLE_ENEMY;
     }
 
