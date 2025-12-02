@@ -49,14 +49,19 @@ public class HeroSpriteAnimation {
      * @param heroResourcePath The resource path to the hero's folder (e.g., "/lyra/")
      */
     public HeroSpriteAnimation(String heroResourcePath) {
-        this.heroResourcePath = heroResourcePath;
+        // Normalize the path: ensure it starts with / and ends with /
+        String normalized = heroResourcePath;
+        if (!normalized.startsWith("/")) {
+            normalized = "/" + normalized;
+        }
+        if (!normalized.endsWith("/")) {
+            normalized = normalized + "/";
+        }
+        this.heroResourcePath = normalized;
         this.frames = new ArrayList<>();
         
-        // Extract hero folder name for metadata parsing
-        String heroFolder = heroResourcePath.replace("/", "").replace("\\", "");
-        if (heroFolder.isEmpty()) {
-            heroFolder = heroResourcePath.substring(1, heroResourcePath.length() - 1);
-        }
+        // Extract hero folder name for metadata parsing (remove leading/trailing slashes)
+        String heroFolder = normalized.replace("/", "").replace("\\", "");
         
         // Load metadata.json for this hero
         this.metadata = MetadataParser.parseMetadata(heroFolder);
@@ -91,6 +96,18 @@ public class HeroSpriteAnimation {
         
         // If no animation found, create a placeholder
         System.err.println("⚠ No animation found for " + heroResourcePath + ", using placeholder");
+        System.err.println("   Tried paths: " + heroResourcePath + "/standard/walk/, " + heroResourcePath + "/standard/idle/, etc.");
+        // Debug: Try to list available resources
+        try {
+            java.net.URL testUrl = HeroSpriteAnimation.class.getResource(heroResourcePath);
+            if (testUrl != null) {
+                System.err.println("   Hero folder exists at: " + testUrl);
+            } else {
+                System.err.println("   Hero folder NOT found at: " + heroResourcePath);
+            }
+        } catch (Exception e) {
+            System.err.println("   Error checking resource path: " + e.getMessage());
+        }
         frames = createPlaceholderFrame();
     }
     
@@ -122,7 +139,11 @@ public class HeroSpriteAnimation {
         }
         
         // Strategy 3: Try loading from standard animation folder
-        String animationPath = heroResourcePath + "/standard/" + animationName + "/";
+        // Normalize path to avoid double slashes
+        String normalizedPath = heroResourcePath.endsWith("/") 
+            ? heroResourcePath.substring(0, heroResourcePath.length() - 1) 
+            : heroResourcePath;
+        String animationPath = normalizedPath + "/standard/" + animationName + "/";
         
         // First, try to load a spritesheet (stripe animation)
         BufferedImage spritesheet = loadSpritesheet(animationPath);
@@ -173,7 +194,11 @@ public class HeroSpriteAnimation {
      */
     private List<BufferedImage> compositeFramesFromMetadata(String animationName, List<String> layerFiles) {
         List<BufferedImage> frames = new ArrayList<>();
-        String animationPath = heroResourcePath + "/standard/" + animationName + "/";
+        // Normalize path to avoid double slashes
+        String normalizedPath = heroResourcePath.endsWith("/") 
+            ? heroResourcePath.substring(0, heroResourcePath.length() - 1) 
+            : heroResourcePath;
+        String animationPath = normalizedPath + "/standard/" + animationName + "/";
         
         int frameSize = (metadata != null) ? metadata.frameSize : DEFAULT_FRAME_WIDTH;
         
@@ -244,7 +269,11 @@ public class HeroSpriteAnimation {
      */
     private List<BufferedImage> loadFromFreeFolder(String animationName) {
         List<BufferedImage> frames = new ArrayList<>();
-        String freePath = heroResourcePath + "/Free/";
+        // Normalize path to avoid double slashes
+        String normalizedPath = heroResourcePath.endsWith("/") 
+            ? heroResourcePath.substring(0, heroResourcePath.length() - 1) 
+            : heroResourcePath;
+        String freePath = normalizedPath + "/Free/";
         
         // Try to find frames in Free folder Part subdirectories
         // Each Part folder typically contains 12 frames
@@ -536,21 +565,50 @@ public class HeroSpriteAnimation {
     private BufferedImage loadImage(String resourcePath) {
         try {
             // Ensure path starts with /
-            if (!resourcePath.startsWith("/")) {
-                resourcePath = "/" + resourcePath;
+            String normalizedPath = resourcePath;
+            if (!normalizedPath.startsWith("/")) {
+                normalizedPath = "/" + normalizedPath;
             }
             
-            URL url = getClass().getResource(resourcePath);
+            // Try multiple methods to load the resource
+            URL url = HeroSpriteAnimation.class.getResource(normalizedPath);
+            if (url == null) {
+                // Try with ClassLoader (without leading slash)
+                url = HeroSpriteAnimation.class.getClassLoader().getResource(normalizedPath.substring(1));
+            }
+            if (url == null) {
+                // Try Thread's context class loader
+                ClassLoader cl = Thread.currentThread().getContextClassLoader();
+                if (cl != null) {
+                    url = cl.getResource(normalizedPath.substring(1));
+                }
+            }
+            
             if (url == null) {
                 return null;
             }
             
-            BufferedImage img = ImageIO.read(url);
-            if (img != null && img.getWidth() > 0 && img.getHeight() > 0) {
-                return img;
+            // Check if URL points to a JAR entry
+            String urlString = url.toString();
+            if (urlString.startsWith("jar:")) {
+                // Resource is in a JAR file - use InputStream
+                try (java.io.InputStream is = url.openStream()) {
+                    BufferedImage img = ImageIO.read(is);
+                    if (img != null && img.getWidth() > 0 && img.getHeight() > 0) {
+                        return img;
+                    }
+                }
+            } else {
+                // Resource is a file - use ImageIO.read directly
+                BufferedImage img = ImageIO.read(url);
+                if (img != null && img.getWidth() > 0 && img.getHeight() > 0) {
+                    return img;
+                }
             }
             return null;
         } catch (IOException e) {
+            return null;
+        } catch (Exception e) {
             return null;
         }
     }
