@@ -1,5 +1,6 @@
 package com.defendersofsolara.ui;
 
+import com.defendersofsolara.audio.MusicManager;
 import com.defendersofsolara.characters.enemies.*;
 import com.defendersofsolara.characters.heroes.*;
 import com.defendersofsolara.core.BattleState;
@@ -113,6 +114,9 @@ public class UnifiedGameUI extends JFrame {
     
     // Background image
     private BufferedImage menuBackground = null;
+    
+    // Music manager
+    private MusicManager musicManager;
 
     // ==================== CONSTRUCTOR ====================
 
@@ -126,6 +130,12 @@ public class UnifiedGameUI extends JFrame {
         initializeProfiles();
         loadWorldIcons();
         loadMenuBackground();
+        
+        // Initialize music manager
+        musicManager = new MusicManager();
+        musicManager.setMasterVolume(0.8f);
+        musicManager.setMusicVolume(0.8f);
+        
         cardLayout = new CardLayout();
         mainContainer = new JPanel(cardLayout);
 
@@ -154,6 +164,7 @@ public class UnifiedGameUI extends JFrame {
         glass.setVisible(true);
         updateCurrentScreen(SCREEN_MAIN_MENU);
         showScreen(SCREEN_MAIN_MENU);
+        // Menu music will be started by handleScreenMusic() when showScreen() completes
 
         setVisible(true);
         setupGlobalKeyBindings();
@@ -346,6 +357,9 @@ public class UnifiedGameUI extends JFrame {
                             cardLayout.show(mainContainer, targetScreen);
                             updateCurrentScreen(targetScreen);
                             System.out.println("Successfully switched to screen: " + targetScreen);
+                            
+                            // Handle music based on screen
+                            handleScreenMusic(targetScreen);
                         } catch (Exception ex) {
                             System.err.println("ERROR: Failed to show screen: " + targetScreen);
                             System.err.println("Exception: " + ex.getMessage());
@@ -437,7 +451,67 @@ public class UnifiedGameUI extends JFrame {
         JPanel battlePanel = createBattle(worldId);
         battlePanel.setName(SCREEN_BATTLE);
         mainContainer.add(battlePanel, SCREEN_BATTLE);
+        
+        // Play dungeon music BEFORE showing the screen to avoid music mixing
+        playDungeonMusic(worldId);
+        
+        // Now show the battle screen (this will NOT trigger menu music since handleScreenMusic ignores battle screens)
         showScreen(SCREEN_BATTLE);
+    }
+    
+    /**
+     * Handle music playback based on the current screen.
+     * Only handles menu screens - battle music is handled separately in showBattle().
+     */
+    private void handleScreenMusic(String screenName) {
+        // Explicitly ignore battle screens - they handle their own music
+        if (SCREEN_BATTLE.equals(screenName)) {
+            return;
+        }
+        
+        // Play menu music for all menu screens
+        if (SCREEN_MAIN_MENU.equals(screenName) || 
+            SCREEN_PROFILE_SELECT.equals(screenName) || 
+            SCREEN_WORLD_SELECT.equals(screenName) ||
+            SCREEN_CHARACTER_SELECT.equals(screenName) ||
+            SCREEN_SETTINGS.equals(screenName) ||
+            SCREEN_CREDITS.equals(screenName) ||
+            SCREEN_NARRATIVE.equals(screenName) ||
+            SCREEN_WORLD_STORY.equals(screenName)) {
+            // Stop any playing music first, then play menu music
+            musicManager.playMusic("music/menu/StarlightOverTheSleepingFields-menu.mp3");
+        }
+    }
+    
+    /**
+     * Play dungeon music based on world ID (1-4).
+     */
+    private void playDungeonMusic(int worldId) {
+        String musicPath = null;
+        switch (worldId) {
+            case 1:
+                musicPath = "music/dungeon1/PathOfTheGoblinKing-dungeon1.mp3";
+                break;
+            case 2:
+                musicPath = "music/dungeon2/Frozentemple-dungeon2.mp3";
+                break;
+            case 3:
+                musicPath = "music/dungeon3/SpiritOfTheWild-dungeon3.mp3";
+                break;
+            case 4:
+                musicPath = "music/dungeon4/VolcanoKingdom-dunegon4.mp3";
+                break;
+            default:
+                // For world 5 or higher, use dungeon 4 music as fallback
+                if (worldId >= 5) {
+                    musicPath = "music/dungeon4/VolcanoKingdom-dunegon4.mp3";
+                }
+                break;
+        }
+        
+        if (musicPath != null) {
+            musicManager.playMusic(musicPath);
+        }
     }
 
     // ==================== BACKGROUND ====================
@@ -910,7 +984,7 @@ public class UnifiedGameUI extends JFrame {
         gbc.gridy = 2;
         videoPanel.add(applyVideoBtn, gbc);
 
-        // Audio tab (simple sliders, no real audio backend yet)
+        // Audio tab with working music controls
         JPanel audioPanel = new JPanel();
         audioPanel.setOpaque(false);
         audioPanel.setLayout(new GridBagLayout());
@@ -924,9 +998,14 @@ public class UnifiedGameUI extends JFrame {
         agbc.gridy = 0;
         audioPanel.add(masterLabel, agbc);
 
-        JSlider masterSlider = new JSlider(0, 100, 80);
+        int masterVol = (int)(musicManager.getMasterVolume() * 100);
+        JSlider masterSlider = new JSlider(0, 100, masterVol);
         masterSlider.setOpaque(false);
         masterSlider.setPreferredSize(new Dimension(250, 40));
+        masterSlider.addChangeListener(e -> {
+            float volume = masterSlider.getValue() / 100.0f;
+            musicManager.setMasterVolume(volume);
+        });
         agbc.gridy = 1;
         audioPanel.add(masterSlider, agbc);
 
@@ -935,9 +1014,14 @@ public class UnifiedGameUI extends JFrame {
         agbc.gridy = 2;
         audioPanel.add(musicLabel, agbc);
 
-        JSlider musicSlider = new JSlider(0, 100, 80);
+        int musicVol = (int)(musicManager.getMusicVolume() * 100);
+        JSlider musicSlider = new JSlider(0, 100, musicVol);
         musicSlider.setOpaque(false);
         musicSlider.setPreferredSize(new Dimension(250, 40));
+        musicSlider.addChangeListener(e -> {
+            float volume = musicSlider.getValue() / 100.0f;
+            musicManager.setMusicVolume(volume);
+        });
         agbc.gridy = 3;
         audioPanel.add(musicSlider, agbc);
 
