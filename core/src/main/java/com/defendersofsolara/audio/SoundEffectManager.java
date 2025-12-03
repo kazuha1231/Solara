@@ -15,6 +15,7 @@ public class SoundEffectManager {
     
     private float masterVolume = 0.8f;
     private float sfxVolume = 0.8f;
+    private boolean muted = false;
     private final ExecutorService soundExecutor = Executors.newFixedThreadPool(4);
     private final ConcurrentHashMap<String, Clip> activeClips = new ConcurrentHashMap<>();
     
@@ -141,7 +142,8 @@ public class SoundEffectManager {
         if (clip == null) return;
         
         try {
-            float combinedVolume = masterVolume * sfxVolume;
+            // If muted, set volume to 0, otherwise use calculated volume
+            float combinedVolume = muted ? 0.0f : (masterVolume * sfxVolume);
             
             if (clip.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
                 FloatControl gainControl = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
@@ -197,6 +199,21 @@ public class SoundEffectManager {
      */
     public float getSfxVolume() {
         return sfxVolume;
+    }
+    
+    /**
+     * Set mute state (true = muted, false = unmuted).
+     */
+    public void setMuted(boolean muted) {
+        this.muted = muted;
+        updateAllVolumes();
+    }
+    
+    /**
+     * Get mute state.
+     */
+    public boolean isMuted() {
+        return muted;
     }
     
     /**

@@ -20,7 +20,7 @@ class MenuUI extends JPanel {
     private float glowPulse = 0f;
 
     private final MenuButton startGameBtn;
-    private final MenuButton optionsBtn;
+    private final MenuButton settingsBtn;
     private final MenuButton creditsBtn;
     private final MenuButton exitBtn;
 
@@ -29,7 +29,7 @@ class MenuUI extends JPanel {
         setLayout(null);
 
         startGameBtn = new MenuButton("Start Game", false);
-        optionsBtn   = new MenuButton("Options", false);
+        settingsBtn  = new MenuButton("Settings", false);
         creditsBtn   = new MenuButton("Credits", false);
         exitBtn      = new MenuButton("Exit Game", false);
         addComponentListener(new ComponentAdapter() {
@@ -67,7 +67,7 @@ class MenuUI extends JPanel {
         int startY = (int) (getHeight() * 0.45);
         int spacing = 48;
         startGameBtn.setPosition(centerX, startY);
-        optionsBtn.setPosition(centerX, startY + spacing);
+        settingsBtn.setPosition(centerX, startY + spacing);
         creditsBtn.setPosition(centerX, startY + spacing * 2);
         exitBtn.setPosition(centerX, startY + spacing * 3);
     }
@@ -77,7 +77,7 @@ class MenuUI extends JPanel {
         hoveredButton = null;
 
         if (startGameBtn.contains(p)) hoveredButton = startGameBtn;
-        else if (optionsBtn.contains(p)) hoveredButton = optionsBtn;
+        else if (settingsBtn.contains(p)) hoveredButton = settingsBtn;
         else if (creditsBtn.contains(p)) hoveredButton = creditsBtn;
         else if (exitBtn.contains(p)) hoveredButton = exitBtn;
 
@@ -92,10 +92,10 @@ class MenuUI extends JPanel {
     private void handleClick(Point p) {
         if (startGameBtn.contains(p)) {
             parent.showScreen(UnifiedGameUI.SCREEN_PROFILE_SELECT);
+        } else if (settingsBtn.contains(p)) {
+            parent.showScreen(UnifiedGameUI.SCREEN_SETTINGS);
         } else if (creditsBtn.contains(p)) {
             parent.showScreen(UnifiedGameUI.SCREEN_CREDITS);
-        } else if (optionsBtn.contains(p)) {
-            parent.showScreen(UnifiedGameUI.SCREEN_SETTINGS);
         } else if (exitBtn.contains(p)) {
             int choice = JOptionPane.showConfirmDialog(
                 parent,
@@ -135,7 +135,7 @@ class MenuUI extends JPanel {
         // Buttons
         layoutButtons();
         drawButton(g2d, startGameBtn);
-        drawButton(g2d, optionsBtn);
+        drawButton(g2d, settingsBtn);
         drawButton(g2d, creditsBtn);
         drawButton(g2d, exitBtn);
         

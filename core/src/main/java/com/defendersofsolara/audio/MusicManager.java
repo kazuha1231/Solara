@@ -21,6 +21,7 @@ public class MusicManager {
     
     private float masterVolume = 0.8f;
     private float musicVolume = 0.8f;
+    private boolean muted = false;
     
     private FloatControl gainControl;
     
@@ -227,7 +228,8 @@ public class MusicManager {
         }
         
         try {
-            float combinedVolume = masterVolume * musicVolume;
+            // If muted, set volume to 0, otherwise use calculated volume
+            float combinedVolume = muted ? 0.0f : (masterVolume * musicVolume);
             
             if (gainControl.getType() == FloatControl.Type.MASTER_GAIN) {
                 // MASTER_GAIN is in decibels, range is typically -80.0 to 6.0206
@@ -242,6 +244,21 @@ public class MusicManager {
         } catch (Exception e) {
             // Ignore volume control errors
         }
+    }
+    
+    /**
+     * Set mute state (true = muted, false = unmuted).
+     */
+    public void setMuted(boolean muted) {
+        this.muted = muted;
+        updateVolume();
+    }
+    
+    /**
+     * Get mute state.
+     */
+    public boolean isMuted() {
+        return muted;
     }
     
     /**

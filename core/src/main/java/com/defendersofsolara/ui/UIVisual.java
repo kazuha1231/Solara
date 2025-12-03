@@ -217,7 +217,8 @@ public class UIVisual {
 
             JButton applyBtn = HexButton.makeButton("APPLY", () -> {
                 resIdx = resBox.getSelectedIndex();
-                frame.applyResolution(resIdx);
+                // Resolution settings now handled in main settings menu
+                // frame.applyResolution(resIdx);
             });
             applyBtn.setBounds(80,160,140,40); v.add(applyBtn);
             tabs.addTab("Video", v);

@@ -1,12 +1,11 @@
 package com.defendersofsolara.ui;
 
-import com.defendersofsolara.audio.MusicManager;
-import com.defendersofsolara.audio.SoundEffectManager;
+import com.defendersofsolara.audio.AudioManager;
+import com.defendersofsolara.core.SettingsManager;
 import com.defendersofsolara.characters.enemies.*;
 import com.defendersofsolara.characters.heroes.*;
 import com.defendersofsolara.core.BattleState;
 import com.defendersofsolara.core.Character;
-import com.defendersofsolara.core.GameSettings;
 import com.defendersofsolara.core.PlayerProgress;
 import com.defendersofsolara.core.Skill;
 import com.defendersofsolara.core.TargetType;
@@ -61,8 +60,6 @@ public class UnifiedGameUI extends JFrame {
     private final Map<Integer, ImageIcon> worldIcons = new HashMap<>();
     private String currentScreen = SCREEN_MAIN_MENU;
     private int pendingWorldId = 0; // World ID pending character selection
-    private boolean settingsOpenedFromPause = false; // Track if settings was opened from pause menu
-
     private int selectedWorldId = 1;
     private Character[] playerTeam;
     private Character[] enemyTeam;
@@ -117,36 +114,56 @@ public class UnifiedGameUI extends JFrame {
     // Background image
     private BufferedImage menuBackground = null;
     
-    // Audio managers
-    private MusicManager musicManager;
-    private SoundEffectManager soundEffectManager;
-    private GameSettings gameSettings;
+    // Audio manager
+    private AudioManager audioManager;
+    private SettingsManager settingsManager;
+    
 
     // ==================== CONSTRUCTOR ====================
 
     public UnifiedGameUI() {
         setTitle("Defenders of Solara: The Shattered Dungeons of Eldralune");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(currentWidth, currentHeight);
+        
+        // Load settings FIRST before setting window size
+        settingsManager = SettingsManager.getInstance();
+        audioManager = AudioManager.getInstance();
+        
+        // Load resolution from settings
+        currentWidth = settingsManager.getWidth();
+        currentHeight = settingsManager.getHeight();
+        boolean fullscreen = settingsManager.isFullscreen();
+        
+        // Set initial resolution based on saved settings
+        if (fullscreen) {
+            setSize(Toolkit.getDefaultToolkit().getScreenSize());
+            setUndecorated(true);
+            setResizable(false);
+        } else {
+            setSize(currentWidth, currentHeight);
+            setUndecorated(false);
+            setResizable(true);
+        }
+        
         setLocationRelativeTo(null);
-        setResizable(false);
         configureDisplayScale();
         initializeProfiles();
         loadWorldIcons();
         loadMenuBackground();
         
-        // Load game settings
-        gameSettings = GameSettings.getInstance();
-        
-        // Initialize audio managers with saved settings
-        musicManager = new MusicManager();
-        soundEffectManager = SoundEffectManager.getInstance();
-        
         // Apply saved audio settings
-        musicManager.setMasterVolume(gameSettings.getMasterVolume());
-        musicManager.setMusicVolume(gameSettings.getMusicVolume());
-        soundEffectManager.setMasterVolume(gameSettings.getMasterVolume());
-        soundEffectManager.setSfxVolume(gameSettings.getSfxVolume());
+        audioManager.setMasterVolume(settingsManager.getMasterVolume());
+        audioManager.setMusicVolume(settingsManager.getMusicVolume());
+        audioManager.setSfxVolume(settingsManager.getSfxVolume());
+        audioManager.setMuted(settingsManager.isMuted());
+        
+        // Apply fullscreen if needed
+        if (fullscreen) {
+            GraphicsDevice gd = GraphicsEnvironment.getLocalGraphicsEnvironment()
+                .getDefaultScreenDevice();
+            setVisible(true);
+            gd.setFullScreenWindow(this);
+        }
         
         cardLayout = new CardLayout();
         mainContainer = new JPanel(cardLayout);
@@ -186,16 +203,12 @@ public class UnifiedGameUI extends JFrame {
             @Override
             public void windowClosing(java.awt.event.WindowEvent e) {
                 // Save settings
-                if (gameSettings != null) {
-                    gameSettings.save();
+                if (settingsManager != null) {
+                    settingsManager.save();
                 }
-                // Stop music
-                if (musicManager != null) {
-                    musicManager.stopMusic();
-                }
-                // Shutdown sound effects
-                if (soundEffectManager != null) {
-                    soundEffectManager.shutdown();
+                // Shutdown audio
+                if (audioManager != null) {
+                    audioManager.shutdown();
                 }
             }
         });
@@ -217,6 +230,7 @@ public class UnifiedGameUI extends JFrame {
         }
         startFadeTo(screenName);
     }
+    
     
     private void refreshCharacterSelection() {
         System.out.println("=== REFRESHING CHARACTER SELECTION ===");
@@ -510,7 +524,7 @@ public class UnifiedGameUI extends JFrame {
             SCREEN_NARRATIVE.equals(screenName) ||
             SCREEN_WORLD_STORY.equals(screenName)) {
             // Stop any playing music first, then play menu music
-            musicManager.playMusic("music/menu/StarlightOverTheSleepingFields-menu.mp3");
+            audioManager.playMusic("music/menu/StarlightOverTheSleepingFields-menu.mp3");
         }
     }
     
@@ -541,7 +555,7 @@ public class UnifiedGameUI extends JFrame {
         }
         
         if (musicPath != null) {
-            musicManager.playMusic(musicPath);
+            audioManager.playMusic(musicPath);
         }
     }
 
@@ -968,183 +982,406 @@ public class UnifiedGameUI extends JFrame {
     private JPanel createSettingsMenu() {
         JPanel root = createBackgroundPanel();
         root.setLayout(new BorderLayout());
-
+        
         JLabel title = new JLabel(
-            "<html><center><font size='6' color='#00FFFF'><b>OPTIONS</b></font></center></html>"
+            "<html><center><font size='6' color='#00FFFF'><b>SETTINGS</b></font></center></html>"
         );
         title.setHorizontalAlignment(SwingConstants.CENTER);
         title.setBorder(new EmptyBorder(20, 10, 10, 10));
-
-        // Transparent tabbed pane so the background art shows through
-        JTabbedPane tabs = new JTabbedPane() {
-            @Override
-            protected void paintComponent(Graphics g) {
-                // Do not paint default white background
-            }
+        
+        // Main content panel with scroll pane
+        JPanel contentPanel = new JPanel();
+        contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
+        contentPanel.setOpaque(false);
+        contentPanel.setBorder(new EmptyBorder(20, 40, 20, 40));
+        
+        // ==================== DISPLAY SETTINGS ====================
+        JLabel displayHeader = new JLabel("═══ DISPLAY ═══");
+        displayHeader.setFont(UITheme.FONT_BUTTON.deriveFont(18f));
+        displayHeader.setForeground(UITheme.PRIMARY_CYAN);
+        displayHeader.setAlignmentX(Component.CENTER_ALIGNMENT);
+        contentPanel.add(displayHeader);
+        contentPanel.add(Box.createVerticalStrut(20));
+        
+        // Resolution selection
+        JLabel resolutionLabel = new JLabel("Resolution:");
+        resolutionLabel.setFont(UITheme.FONT_BUTTON);
+        resolutionLabel.setForeground(UITheme.PRIMARY_CYAN);
+        resolutionLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        contentPanel.add(resolutionLabel);
+        contentPanel.add(Box.createVerticalStrut(10));
+        
+        // Get supported display modes
+        GraphicsDevice gd = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
+        DisplayMode[] displayModes = gd.getDisplayModes();
+        
+        // Target resolutions to check
+        int[][] targetResolutions = {
+            {1920, 1080},
+            {1600, 900},
+            {1366, 768},
+            {1280, 720}
         };
-        tabs.setOpaque(false);
-        tabs.setBackground(new Color(0, 0, 0, 0));
-
-        // Video tab
-        JPanel videoPanel = new JPanel(new GridBagLayout());
-        videoPanel.setOpaque(false);
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0;
-        gbc.insets = new Insets(10, 10, 10, 10);
-
-        JCheckBox fullscreenCheck = new JCheckBox("Fullscreen (Borderless)");
-        fullscreenCheck.setFont(UITheme.FONT_BUTTON);
-        fullscreenCheck.setForeground(UITheme.PRIMARY_CYAN);
-        fullscreenCheck.setOpaque(false);
-        gbc.gridy = 0;
-        videoPanel.add(fullscreenCheck, gbc);
-
-        String[] resolutions = {"800x600", "1024x768", "1280x720", "1920x1080"};
-        JComboBox<String> resolutionBox = new JComboBox<>(resolutions);
-        resolutionBox.setFont(UITheme.FONT_BUTTON);
-        resolutionBox.setForeground(UITheme.PRIMARY_CYAN);
-        resolutionBox.setBackground(UITheme.BG_BUTTON);
-        resolutionBox.setSelectedIndex(2);
-        gbc.gridy = 1;
-        videoPanel.add(resolutionBox, gbc);
-
-        JButton applyVideoBtn = UITheme.createSmallButton("APPLY VIDEO");
-        applyVideoBtn.addActionListener(e ->
-            applySettings(fullscreenCheck.isSelected(), (String) resolutionBox.getSelectedItem())
-        );
-        gbc.gridy = 2;
-        videoPanel.add(applyVideoBtn, gbc);
-
-        // Audio tab with working music controls
-        JPanel audioPanel = new JPanel();
-        audioPanel.setOpaque(false);
-        audioPanel.setLayout(new GridBagLayout());
-        GridBagConstraints agbc = new GridBagConstraints();
-        agbc.gridx = 0;
-        agbc.insets = new Insets(10, 10, 10, 10);
-        agbc.anchor = GridBagConstraints.WEST;
-
-        JLabel masterLabel = new JLabel("Master Volume");
-        masterLabel.setForeground(UITheme.PRIMARY_CYAN);
-        agbc.gridy = 0;
-        audioPanel.add(masterLabel, agbc);
-
-        int masterVol = (int)(gameSettings.getMasterVolume() * 100);
-        JSlider masterSlider = new JSlider(0, 100, masterVol);
-        masterSlider.setOpaque(false);
-        masterSlider.setPreferredSize(new Dimension(250, 40));
-        masterSlider.addChangeListener(e -> {
-            float volume = masterSlider.getValue() / 100.0f;
-            gameSettings.setMasterVolume(volume);
-            musicManager.setMasterVolume(volume);
-            soundEffectManager.setMasterVolume(volume);
+        
+        // Find supported resolutions
+        java.util.List<String> supportedResolutions = new ArrayList<>();
+        for (int[] res : targetResolutions) {
+            for (DisplayMode mode : displayModes) {
+                if (mode.getWidth() == res[0] && mode.getHeight() == res[1]) {
+                    String resStr = res[0] + "x" + res[1];
+                    if (!supportedResolutions.contains(resStr)) {
+                        supportedResolutions.add(resStr);
+                    }
+                    break;
+                }
+            }
+        }
+        
+        // If no supported resolutions found, add defaults anyway (windowed mode supports any size)
+        if (supportedResolutions.isEmpty()) {
+            supportedResolutions.add("1920x1080");
+            supportedResolutions.add("1600x900");
+            supportedResolutions.add("1366x768");
+            supportedResolutions.add("1280x720");
+        }
+        
+        // Current resolution
+        String currentRes = currentWidth + "x" + currentHeight;
+        if (!supportedResolutions.contains(currentRes)) {
+            supportedResolutions.add(0, currentRes + " (Current)");
+        }
+        
+        // Radio button group for resolution
+        ButtonGroup resolutionGroup = new ButtonGroup();
+        JPanel resolutionPanel = new JPanel();
+        resolutionPanel.setLayout(new BoxLayout(resolutionPanel, BoxLayout.Y_AXIS));
+        resolutionPanel.setOpaque(false);
+        resolutionPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
+        // Store selected resolution
+        final String[] selectedResolution = {currentRes};
+        
+        for (String res : supportedResolutions) {
+            JRadioButton radio = new JRadioButton(res);
+            radio.setOpaque(false);
+            radio.setFont(UITheme.FONT_BUTTON.deriveFont(14f));
+            radio.setForeground(UITheme.PRIMARY_WHITE);
+            radio.setSelected(res.equals(currentRes) || res.startsWith(currentRes));
+            if (radio.isSelected()) {
+                selectedResolution[0] = res.replace(" (Current)", "");
+            }
+            radio.addActionListener(e -> {
+                selectedResolution[0] = res.replace(" (Current)", "");
+            });
+            resolutionGroup.add(radio);
+            resolutionPanel.add(radio);
+        }
+        
+        contentPanel.add(resolutionPanel);
+        contentPanel.add(Box.createVerticalStrut(15));
+        
+        // Fullscreen checkbox
+        JCheckBox fullscreenCheckbox = new JCheckBox("Fullscreen Mode");
+        fullscreenCheckbox.setOpaque(false);
+        fullscreenCheckbox.setFont(UITheme.FONT_BUTTON);
+        fullscreenCheckbox.setForeground(UITheme.PRIMARY_CYAN);
+        fullscreenCheckbox.setSelected(settingsManager.isFullscreen());
+        fullscreenCheckbox.setAlignmentX(Component.CENTER_ALIGNMENT);
+        contentPanel.add(fullscreenCheckbox);
+        contentPanel.add(Box.createVerticalStrut(30));
+        
+        // ==================== AUDIO SETTINGS ====================
+        JLabel audioHeader = new JLabel("═══ AUDIO ═══");
+        audioHeader.setFont(UITheme.FONT_BUTTON.deriveFont(18f));
+        audioHeader.setForeground(UITheme.PRIMARY_CYAN);
+        audioHeader.setAlignmentX(Component.CENTER_ALIGNMENT);
+        contentPanel.add(audioHeader);
+        contentPanel.add(Box.createVerticalStrut(20));
+        
+        // Master Volume
+        JPanel masterPanel = createVolumeSlider("Master Volume:", 
+            (int)(settingsManager.getMasterVolume() * 100),
+            value -> {
+                float vol = value / 100.0f;
+                settingsManager.setMasterVolume(vol);
+                audioManager.setMasterVolume(vol);
+            });
+        masterPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        contentPanel.add(masterPanel);
+        contentPanel.add(Box.createVerticalStrut(15));
+        
+        // Music Volume
+        JPanel musicPanel = createVolumeSlider("Music Volume:",
+            (int)(settingsManager.getMusicVolume() * 100),
+            value -> {
+                float vol = value / 100.0f;
+                settingsManager.setMusicVolume(vol);
+                audioManager.setMusicVolume(vol);
+            });
+        musicPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        contentPanel.add(musicPanel);
+        contentPanel.add(Box.createVerticalStrut(15));
+        
+        // SFX Volume
+        JPanel sfxPanel = createVolumeSlider("SFX Volume:",
+            (int)(settingsManager.getSfxVolume() * 100),
+            value -> {
+                float vol = value / 100.0f;
+                settingsManager.setSfxVolume(vol);
+                audioManager.setSfxVolume(vol);
+            });
+        sfxPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        contentPanel.add(sfxPanel);
+        contentPanel.add(Box.createVerticalStrut(15));
+        
+        // Mute All checkbox
+        JCheckBox muteCheckbox = new JCheckBox("Mute All");
+        muteCheckbox.setOpaque(false);
+        muteCheckbox.setFont(UITheme.FONT_BUTTON);
+        muteCheckbox.setForeground(UITheme.PRIMARY_CYAN);
+        muteCheckbox.setSelected(settingsManager.isMuted());
+        muteCheckbox.setAlignmentX(Component.CENTER_ALIGNMENT);
+        muteCheckbox.addActionListener(e -> {
+            boolean muted = muteCheckbox.isSelected();
+            settingsManager.setMuted(muted);
+            audioManager.setMuted(muted);
         });
-        agbc.gridy = 1;
-        audioPanel.add(masterSlider, agbc);
-
-        JLabel musicLabel = new JLabel("Music Volume");
-        musicLabel.setForeground(UITheme.PRIMARY_CYAN);
-        agbc.gridy = 2;
-        audioPanel.add(musicLabel, agbc);
-
-        int musicVol = (int)(gameSettings.getMusicVolume() * 100);
-        JSlider musicSlider = new JSlider(0, 100, musicVol);
-        musicSlider.setOpaque(false);
-        musicSlider.setPreferredSize(new Dimension(250, 40));
-        musicSlider.addChangeListener(e -> {
-            float volume = musicSlider.getValue() / 100.0f;
-            gameSettings.setMusicVolume(volume);
-            musicManager.setMusicVolume(volume);
-        });
-        agbc.gridy = 3;
-        audioPanel.add(musicSlider, agbc);
-
-        JLabel sfxLabel = new JLabel("SFX Volume");
-        sfxLabel.setForeground(UITheme.PRIMARY_CYAN);
-        agbc.gridy = 4;
-        audioPanel.add(sfxLabel, agbc);
-
-        int sfxVol = (int)(gameSettings.getSfxVolume() * 100);
-        JSlider sfxSlider = new JSlider(0, 100, sfxVol);
-        sfxSlider.setOpaque(false);
-        sfxSlider.setPreferredSize(new Dimension(250, 40));
-        sfxSlider.addChangeListener(e -> {
-            float volume = sfxSlider.getValue() / 100.0f;
-            gameSettings.setSfxVolume(volume);
-            soundEffectManager.setSfxVolume(volume);
-        });
-        agbc.gridy = 5;
-        audioPanel.add(sfxSlider, agbc);
-
-        tabs.addTab("Video", videoPanel);
-        tabs.addTab("Audio", audioPanel);
-
-        JButton backBtn = UITheme.createButton("BACK");
-        backBtn.addActionListener(e -> {
-            if (settingsOpenedFromPause) {
-                // Return to pause menu instead of main menu
-                settingsOpenedFromPause = false;
-                showPauseMenu();
-            } else {
-                returnToMainMenu();
+        contentPanel.add(muteCheckbox);
+        contentPanel.add(Box.createVerticalStrut(30));
+        
+        // Scroll pane for content
+        JScrollPane scrollPane = new JScrollPane(contentPanel);
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+        scrollPane.setBorder(null);
+        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        
+        // Button panel
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
+        buttonPanel.setOpaque(false);
+        
+        JButton applyBtn = UITheme.createButton("APPLY");
+        applyBtn.addActionListener(e -> {
+            try {
+                // Get selected resolution
+                String res = selectedResolution[0];
+                boolean fullscreen = fullscreenCheckbox.isSelected();
+                
+                // Apply display settings
+                applyDisplaySettings(res, fullscreen);
+                
+                // Save all settings
+                settingsManager.save();
+                
+                // Show success (optional - can be removed)
+                // showStyledMessageDialog(this, "Settings applied successfully!", "Settings");
+            } catch (Exception ex) {
+                System.err.println("Error applying settings: " + ex.getMessage());
+                ex.printStackTrace();
+                showStyledMessageDialog(this,
+                    "Error applying display settings: " + ex.getMessage() + 
+                    "\n\nPlease check your resolution selection and try again.",
+                    "Settings Error"
+                );
             }
         });
-        JPanel bottom = new JPanel();
-        bottom.setOpaque(false);
-        bottom.add(backBtn);
-
+        
+        JButton backBtn = UITheme.createButton("BACK");
+        backBtn.addActionListener(e -> returnToMainMenu());
+        
+        buttonPanel.add(applyBtn);
+        buttonPanel.add(backBtn);
+        
         root.add(title, BorderLayout.NORTH);
-        root.add(tabs, BorderLayout.CENTER);
-        root.add(bottom, BorderLayout.SOUTH);
-
+        root.add(scrollPane, BorderLayout.CENTER);
+        root.add(buttonPanel, BorderLayout.SOUTH);
+        
         return root;
     }
-
-    private void applySettings(boolean fullscreen, String resolution) {
-        try {
-            if (!fullscreen && resolution != null) {
-                String[] dims = resolution.split("x");
-                currentWidth = Integer.parseInt(dims[0]);
-                currentHeight = Integer.parseInt(dims[1]);
-            }
-
-            dispose();
-
-            if (fullscreen) {
-                GraphicsDevice gd = GraphicsEnvironment.getLocalGraphicsEnvironment()
-                    .getDefaultScreenDevice();
-                setUndecorated(true);
-                setSize(Toolkit.getDefaultToolkit().getScreenSize());
-                gd.setFullScreenWindow(this);
-            } else {
-                GraphicsDevice gd = GraphicsEnvironment.getLocalGraphicsEnvironment()
-                    .getDefaultScreenDevice();
-                gd.setFullScreenWindow(null);
-                setUndecorated(false);
-                setSize(currentWidth, currentHeight);
-                setLocationRelativeTo(null);
-            }
-
-            setVisible(true);
-
-        } catch (Exception ex) {
-            showStyledMessageDialog(this,
-                "Error: " + ex.getMessage(),
-                "Settings Error"
-            );
-        }
+    
+    /**
+     * Helper method to create a volume slider panel.
+     */
+    private JPanel createVolumeSlider(String labelText, int initialValue, java.util.function.Consumer<Integer> onChange) {
+        JPanel panel = new JPanel(new BorderLayout(10, 0));
+        panel.setOpaque(false);
+        panel.setMaximumSize(new Dimension(500, 50));
+        
+        JLabel label = new JLabel(labelText);
+        label.setFont(UITheme.FONT_BUTTON);
+        label.setForeground(UITheme.PRIMARY_CYAN);
+        label.setPreferredSize(new Dimension(150, 30));
+        
+        JSlider slider = new JSlider(0, 100, initialValue);
+        slider.setOpaque(false);
+        slider.setPreferredSize(new Dimension(250, 40));
+        
+        JLabel valueLabel = new JLabel(initialValue + "%");
+        valueLabel.setFont(UITheme.FONT_BUTTON);
+        valueLabel.setForeground(UITheme.PRIMARY_WHITE);
+        valueLabel.setPreferredSize(new Dimension(50, 30));
+        
+        slider.addChangeListener(e -> {
+            int value = slider.getValue();
+            valueLabel.setText(value + "%");
+            onChange.accept(value);
+        });
+        
+        panel.add(label, BorderLayout.WEST);
+        panel.add(slider, BorderLayout.CENTER);
+        panel.add(valueLabel, BorderLayout.EAST);
+        
+        return panel;
     }
-
-    // Public method for UIVisual compatibility
-    public void applyResolution(int resIdx) {
-        String[] resolutions = {"800x600", "1024x768", "1280x720", "1920x1080"};
-        boolean isFullscreen = (resIdx == 4);
-
-        if (isFullscreen) {
-            applySettings(true, null);
-        } else if (resIdx >= 0 && resIdx < resolutions.length) {
-            applySettings(false, resolutions[resIdx]);
+    
+    /**
+     * Apply display settings (resolution and fullscreen).
+     */
+    private void applyDisplaySettings(String resolution, boolean fullscreen) {
+        GraphicsDevice gd = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
+        
+        // Validate fullscreen support
+        if (fullscreen && !gd.isFullScreenSupported()) {
+            throw new IllegalStateException("Fullscreen mode is not supported on this system.");
         }
+        
+        // Check current state
+        boolean wasFullscreen = (gd.getFullScreenWindow() == this);
+        boolean currentlyUndecorated = isUndecorated();
+        
+        // Exit fullscreen first if currently in fullscreen
+        if (wasFullscreen) {
+            gd.setFullScreenWindow(null);
+            try {
+                Thread.sleep(150); // Give it time to exit fullscreen
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        
+        if (fullscreen) {
+            // Enter fullscreen mode
+            try {
+                // setFullScreenWindow() automatically handles undecorated state
+                // We don't need to manually call setUndecorated()
+                
+                // Make sure frame is visible
+                if (!isVisible()) {
+                    setVisible(true);
+                }
+                
+                // Small delay to ensure frame is ready
+                try {
+                    Thread.sleep(50);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                
+                // Set fullscreen - this handles everything automatically
+                gd.setFullScreenWindow(this);
+                
+                // Verify fullscreen was set
+                if (gd.getFullScreenWindow() != this) {
+                    throw new IllegalStateException("Failed to enter fullscreen mode");
+                }
+                
+                // Update settings
+                settingsManager.setFullscreen(true);
+                currentWidth = getWidth();
+                currentHeight = getHeight();
+                
+            } catch (Exception fsEx) {
+                // Revert to windowed mode on error
+                gd.setFullScreenWindow(null);
+                
+                // Restore windowed properties using dispose pattern
+                try {
+                    if (currentlyUndecorated) {
+                        dispose();
+                        setUndecorated(false);
+                        setResizable(true);
+                        setSize(currentWidth, currentHeight);
+                        setLocationRelativeTo(null);
+                        setVisible(true);
+                    } else {
+                        setResizable(true);
+                        setSize(currentWidth, currentHeight);
+                        setLocationRelativeTo(null);
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error reverting from fullscreen: " + e.getMessage());
+                    e.printStackTrace();
+                }
+                
+                settingsManager.setFullscreen(false);
+                throw new IllegalStateException("Could not enter fullscreen mode: " + fsEx.getMessage(), fsEx);
+            }
+        } else {
+            // Apply windowed resolution
+            if (resolution != null && !resolution.isEmpty()) {
+                String[] dims = resolution.split("x");
+                if (dims.length == 2) {
+                    try {
+                        int width = Integer.parseInt(dims[0]);
+                        int height = Integer.parseInt(dims[1]);
+                        
+                        // Validate resolution
+                        if (width < 800 || width > 3840 || height < 600 || height > 2160) {
+                            throw new IllegalArgumentException(
+                                "Resolution " + resolution + " is out of valid range (800-3840 x 600-2160)"
+                            );
+                        }
+                        
+                        // Update current dimensions
+                        currentWidth = width;
+                        currentHeight = height;
+                        settingsManager.setWidth(width);
+                        settingsManager.setHeight(height);
+                        settingsManager.setFullscreen(false);
+                        
+                        // If we were in fullscreen or are undecorated, we need to restore windowed properties
+                        if (wasFullscreen || currentlyUndecorated) {
+                            // Use dispose pattern to change undecorated state
+                            // This must be done synchronously on EDT
+                            try {
+                                dispose();
+                                setUndecorated(false);
+                                setResizable(true);
+                                setSize(currentWidth, currentHeight);
+                                setLocationRelativeTo(null);
+                                setVisible(true);
+                                
+                                // Small delay to ensure frame is ready
+                                try {
+                                    Thread.sleep(50);
+                                } catch (InterruptedException e) {
+                                    Thread.currentThread().interrupt();
+                                }
+                            } catch (Exception e) {
+                                System.err.println("Error applying windowed resolution: " + e.getMessage());
+                                e.printStackTrace();
+                                throw new IllegalStateException("Could not apply windowed resolution: " + e.getMessage(), e);
+                            }
+                        } else {
+                            // Already in windowed mode, just resize
+                            setResizable(true);
+                            setSize(currentWidth, currentHeight);
+                            setLocationRelativeTo(null);
+                            if (!isVisible()) {
+                                setVisible(true);
+                            }
+                        }
+                    } catch (NumberFormatException e) {
+                        throw new IllegalArgumentException("Invalid resolution format: " + resolution);
+                    }
+                } else {
+                    throw new IllegalArgumentException("Invalid resolution format: " + resolution);
+                }
+            }
+        }
+        
+        repaint();
     }
 
     // ==================== NARRATIVE ====================
@@ -3913,7 +4150,6 @@ public class UnifiedGameUI extends JFrame {
 
         PauseMenuButton optionsBtn = new PauseMenuButton("OPTIONS", dialog, () -> {
             dialog.dispose();
-            settingsOpenedFromPause = true; // Mark that we're opening settings from pause
             showScreen(SCREEN_SETTINGS);
         });
         gbc.gridy = 1;
@@ -3950,16 +4186,15 @@ public class UnifiedGameUI extends JFrame {
         vgbc.gridy = 0;
         volumePanel.add(masterVolLabel, vgbc);
         
-        int masterVol = (int)(gameSettings.getMasterVolume() * 100);
+        int masterVol = (int)(settingsManager.getMasterVolume() * 100);
         JSlider masterVolSlider = new JSlider(0, 100, masterVol);
         masterVolSlider.setOpaque(false);
         masterVolSlider.setPreferredSize(new Dimension(200, 30));
         masterVolSlider.setBackground(new Color(0, 0, 0, 0));
         masterVolSlider.addChangeListener(e -> {
             float volume = masterVolSlider.getValue() / 100.0f;
-            gameSettings.setMasterVolume(volume);
-            musicManager.setMasterVolume(volume);
-            soundEffectManager.setMasterVolume(volume);
+            settingsManager.setMasterVolume(volume);
+            audioManager.setMasterVolume(volume);
         });
         vgbc.gridy = 1;
         volumePanel.add(masterVolSlider, vgbc);
@@ -3970,18 +4205,32 @@ public class UnifiedGameUI extends JFrame {
         vgbc.gridy = 2;
         volumePanel.add(musicVolLabel, vgbc);
         
-        int musicVol = (int)(gameSettings.getMusicVolume() * 100);
+        int musicVol = (int)(settingsManager.getMusicVolume() * 100);
         JSlider musicVolSlider = new JSlider(0, 100, musicVol);
         musicVolSlider.setOpaque(false);
         musicVolSlider.setPreferredSize(new Dimension(200, 30));
         musicVolSlider.setBackground(new Color(0, 0, 0, 0));
         musicVolSlider.addChangeListener(e -> {
             float volume = musicVolSlider.getValue() / 100.0f;
-            gameSettings.setMusicVolume(volume);
-            musicManager.setMusicVolume(volume);
+            settingsManager.setMusicVolume(volume);
+            audioManager.setMusicVolume(volume);
         });
         vgbc.gridy = 3;
         volumePanel.add(musicVolSlider, vgbc);
+        
+        // Mute checkbox in pause menu
+        JCheckBox pauseMuteCheckbox = new JCheckBox("Mute All");
+        pauseMuteCheckbox.setOpaque(false);
+        pauseMuteCheckbox.setFont(UITheme.FONT_BUTTON.deriveFont(12f));
+        pauseMuteCheckbox.setForeground(UITheme.PRIMARY_CYAN);
+        pauseMuteCheckbox.setSelected(settingsManager.isMuted());
+        pauseMuteCheckbox.addActionListener(e -> {
+            boolean muted = pauseMuteCheckbox.isSelected();
+            settingsManager.setMuted(muted);
+            audioManager.setMuted(muted);
+        });
+        vgbc.gridy = 4;
+        volumePanel.add(pauseMuteCheckbox, vgbc);
         
         centerPanel.add(buttonPanel, BorderLayout.CENTER);
         centerPanel.add(volumePanel, BorderLayout.SOUTH);
